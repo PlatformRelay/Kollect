@@ -12,11 +12,7 @@ error instead of being ignored.
 
 When an `s3` or `gcs` sink configures a CA, its HTTPS client SHALL verify the server certificate
 against the system roots plus that CA, for export and for the connection probe. The client SHALL
-keep the netguard dialer and SHALL NOT use a proxy, as without a CA. When the effective endpoint
-(the spec endpoint, or for `s3://` the one the AWS SDK takes from `AWS_ENDPOINT_URL`,
-`AWS_ENDPOINT_URL_S3` or shared config) has scheme `http` and a CA is configured, backend build
-SHALL fail with a terminal error that says the CA is never checked over plain HTTP. With a CA
-configured, the client SHALL NOT follow a redirect to a non-HTTPS URL. Without a CA, behaviour is
+keep the netguard dialer and SHALL NOT use a proxy, as without a CA. Without a CA, behaviour is
 unchanged.
 
 #### Scenario: Private-CA endpoint is trusted
@@ -44,6 +40,14 @@ unchanged.
 - **THEN** the export fails with a certificate verification error
 - **AND** the client SHALL NOT fall back to an unverified connection
 
+### Requirement: SCT-1.2 A configured CA is never bypassed over plain HTTP
+
+When the effective endpoint of an `s3` or `gcs` sink (the spec endpoint, or for `s3://` the one the
+AWS SDK takes from `AWS_ENDPOINT_URL`, `AWS_ENDPOINT_URL_S3` or shared config) has scheme `http`
+and a CA is configured, backend build SHALL fail with a terminal error that says the CA is never
+checked over plain HTTP. With a CA configured, the client SHALL NOT follow a redirect to a
+non-HTTPS URL.
+
 #### Scenario: Plain HTTP endpoint with a CA is rejected
 
 - **WHEN** an `s3` sink with a CA is built with endpoint `http://host/bucket`, or with endpoint
@@ -60,17 +64,10 @@ unchanged.
 ### Requirement: SCT-2 Postgres trusts the configured CA within the DSN's sslmode
 
 When a `postgres` sink configures a CA, every TLS configuration derived from the DSN (the main
-connection and every fallback) SHALL verify against the system roots plus that CA. `sslmode=verify-full`
-SHALL verify chain and hostname; `verify-ca` SHALL verify the chain; `require` SHALL verify the
-chain as `verify-ca` does (libpq's rule when a root certificate is configured). When neither the
-DSN nor `PGSSLMODE` sets an sslmode, the sink SHALL use `verify-full`. An explicit `disable`,
-`allow` or `prefer` (in the DSN or `PGSSLMODE`) SHALL be rejected at backend build with a terminal
-error that names the sslmode, its source and the accepted values. A root certificate from another source (`sslrootcert` in the DSN or in the
-service-file entry it selects, `PGSSLROOTCERT`, `~/.postgresql/root.crt`) while the sink configures a
-CA SHALL be rejected the same way, naming the
-source and `spec.tls`, whether or not that file is readable. No error this requirement adds, and no
-connection error, SHALL contain the DSN, host, user, password or database name. Without a CA,
-behaviour is unchanged.
+connection and every fallback) SHALL verify against the system roots plus that CA.
+`sslmode=verify-full` SHALL verify chain and hostname; `verify-ca` SHALL verify the chain;
+`require` SHALL verify the chain as `verify-ca` does (libpq's rule when a root certificate is
+configured). Without a CA, behaviour is unchanged.
 
 #### Scenario: verify-full with a private CA
 
@@ -97,6 +94,13 @@ behaviour is unchanged.
 - **WHEN** a sink with CA X and `sslmode=verify-full` connects
 - **THEN** it succeeds
 
+### Requirement: SCT-2.2 The sslmode is verify-full when unset and never weak
+
+When a `postgres` sink configures a CA and neither the DSN nor `PGSSLMODE` sets an sslmode, the
+sink SHALL use `verify-full`. With a CA configured, an explicit `disable`, `allow` or `prefer` (in the DSN or
+`PGSSLMODE`) SHALL be rejected at backend build with a terminal error that names the sslmode, its
+source and the accepted values.
+
 #### Scenario: Unset sslmode becomes verify-full
 
 - **GIVEN** a server signed by X whose certificate SAN does not match the DSN host
@@ -119,6 +123,13 @@ behaviour is unchanged.
   `verify-ca`, `require`
 - **AND** no connection is attempted
 
+### Requirement: SCT-2.3 A second root certificate source is rejected
+
+A root certificate from another source (`sslrootcert` in the DSN or in the service-file entry it
+selects, `PGSSLROOTCERT`, `~/.postgresql/root.crt`) while the sink configures a CA SHALL be
+rejected the same way as a weak sslmode, naming the source and `spec.tls`, whether or not that
+file is readable.
+
 #### Scenario: DSN CA file conflicts with the sink CA
 
 - **WHEN** a sink with a CA has a DSN containing `sslrootcert=/path` (keyword or URL form), or
@@ -126,6 +137,11 @@ behaviour is unchanged.
   `~/.postgresql/root.crt` exists
 - **THEN** the build fails with a terminal error naming that source and `spec.tls`
 - **AND** the error SHALL NOT contain the DSN, host, user or password
+
+### Requirement: SCT-2.4 Postgres errors do not reveal the target
+
+No error that SCT-2 adds, and no connection error, SHALL contain the DSN, host, user, password or
+database name.
 
 #### Scenario: Wrong CA is diagnosable without leaking the target
 
@@ -138,14 +154,7 @@ behaviour is unchanged.
 
 When a `mongodb` sink configures a CA, the driver's TLS configuration SHALL verify against the
 system roots plus that CA, keeping the URI's other TLS settings (client certificate). URI option
-names SHALL match case-insensitively, as in the driver. A URI that sets `tlsCAFile` or
-`sslCertificateAuthorityFile`, a URI on which TLS is off (`mongodb://` with no option that turns
-TLS on, or `tls=false`/`ssl=false` on either scheme), or a URI whose effective `tlsInsecure` or
-`sslInsecure` is `true` SHALL be rejected at backend build, without a DNS lookup, with a terminal error naming the
-URI parameter and `spec.tls`. A driver-built TLS configuration that is absent or already carries a
-root pool or disabled verification SHALL be rejected the same way, so a spelling the key check
-misses cannot pass. The errors this requirement adds SHALL NOT contain the URI, host or
-credentials. Without a CA, behaviour is unchanged.
+names SHALL match case-insensitively, as in the driver. Without a CA, behaviour is unchanged.
 
 #### Scenario: Private-CA server is trusted
 
@@ -165,6 +174,20 @@ credentials. Without a CA, behaviour is unchanged.
 - **WHEN** it connects
 - **THEN** it fails with a certificate verification error and SHALL NOT connect
 
+#### Scenario: Default TLS on SRV, ssl=true and explicit verification are accepted
+
+- **WHEN** a sink with CA X has a `mongodb+srv://` URI without `tls`, or `mongodb://` with
+  `ssl=true`, or `tls=true&tlsInsecure=false`
+- **THEN** the build is accepted and the CA applies
+
+### Requirement: SCT-3.2 URI settings that bypass the CA are rejected
+
+For a `mongodb` sink that configures a CA, a URI that sets `tlsCAFile` or
+`sslCertificateAuthorityFile`, a URI on which TLS is off (`mongodb://` with no option that turns
+TLS on, or `tls=false`/`ssl=false` on either scheme), or a URI whose effective `tlsInsecure` or
+`sslInsecure` is `true` SHALL be rejected at backend build, without a DNS lookup, with a terminal
+error naming the URI parameter and `spec.tls`.
+
 #### Scenario: URI settings that would ignore or override the CA are rejected
 
 - **WHEN** a sink with a CA has a URI with `tlsCAFile=...` (any letter case), or `mongodb://`
@@ -173,29 +196,34 @@ credentials. Without a CA, behaviour is unchanged.
 - **AND** the error SHALL NOT contain the URI or credentials
 - **AND** a `mongodb+srv://` URI is rejected without any DNS lookup
 
-#### Scenario: Default TLS on SRV, ssl=true and explicit verification are accepted
+### Requirement: SCT-3.3 A driver-built TLS configuration cannot bypass the CA
 
-- **WHEN** a sink with CA X has a `mongodb+srv://` URI without `tls`, or `mongodb://` with
-  `ssl=true`, or `tls=true&tlsInsecure=false`
-- **THEN** the build is accepted and the CA applies
+For a `mongodb` sink that configures a CA, a driver-built TLS configuration that is absent or already carries a root pool or disabled
+verification SHALL be rejected the same way as the URIs of SCT-3.2, so a spelling the key check
+misses cannot pass. The errors SCT-3 adds SHALL NOT contain the URI, host or credentials.
+
+#### Scenario: Driver-built TLS configuration that ignores the CA is rejected
+
+- **WHEN** the driver builds, for a sink with a CA, a TLS configuration that is absent, already carries a root pool, or has verification disabled
+- **THEN** the build fails with a terminal error naming `spec.tls`
+- **AND** the error SHALL NOT contain the URI, host or credentials
 
 ### Requirement: SCT-4 An unusable CA is a terminal error, never ignored
 
 For `s3`, `gcs`, `postgres` and `mongodb`, CA PEM that yields no certificate (garbage, empty after
 trimming, or only non-certificate blocks such as a private key) SHALL fail backend build with a
-terminal error that names `spec.tls` and does not echo the PEM. For every sink type, a `caSecretRef`
-Secret with none of the keys `tls.crt`, `ca.crt`, `ca.pem` SHALL fail with a terminal error naming
-the Secret and the expected keys, and a spec that sets both `caBundle` and `caSecretRef` SHALL fail
-with a terminal error before the CA Secret is fetched. A terminal build failure SHALL NOT be cached:
-after the Secret or spec is fixed, the next backend acquisition (`acquireBackend`,
-`internal/sink/backend_pool.go:145-153`) builds the backend. A terminal error does not requeue and
-no controller watches Secrets, so that acquisition happens on the next sink or inventory event; the
-docs SHALL tell users to touch the sink after fixing a Secret.
+terminal error that names `spec.tls` and does not echo the PEM.
 
 #### Scenario: Garbage PEM
 
 - **WHEN** a sink of each of the four types has `caBundle: "not a certificate"`
 - **THEN** the build fails with a terminal error naming `spec.tls`, before any connection
+
+### Requirement: SCT-4.2 A missing CA key or two CA sources fail for every sink type
+
+For every sink type, a `caSecretRef` Secret with none of the keys `tls.crt`, `ca.crt`, `ca.pem`
+SHALL fail with a terminal error naming the Secret and the expected keys, and a spec that sets both
+`caBundle` and `caSecretRef` SHALL fail with a terminal error before the CA Secret is fetched.
 
 #### Scenario: Secret without a CA key
 
@@ -209,6 +237,14 @@ docs SHALL tell users to touch the sink after fixing a Secret.
 - **WHEN** a sink sets `caBundle` and `caSecretRef`, even when the referenced Secret does not exist
 - **THEN** the build fails with the both-sources terminal error, and neither CA is used
 
+### Requirement: SCT-4.3 A terminal build failure is not cached
+
+A terminal build failure SHALL NOT be cached: after the Secret or spec is fixed, the next backend
+acquisition (`acquireBackend`, `internal/sink/backend_pool.go:145-153`) builds the backend. A
+terminal error does not requeue and no controller watches Secrets, so that acquisition happens on
+the next sink or inventory event; the docs SHALL tell users to touch the sink after fixing a
+Secret.
+
 #### Scenario: Failure then recovery
 
 - **GIVEN** a `postgres` sink with a CA whose DSN Secret sets `sslrootcert`, so the build fails
@@ -219,12 +255,18 @@ docs SHALL tell users to touch the sink after fixing a Secret.
 
 The operator's export path, the operator's connection probe and `kollect-pipeline collect` SHALL
 check the CA sources and select the CA through the same shared functions (same key order, same
-error values) and SHALL build the clients through the same constructors with the CA passed. For the
-same sink spec and Secrets, the operator and the CLI SHALL either both succeed with the same CA or
-both fail with the same shared error, which each MAY wrap with its own context; Secret-lookup
-errors stay source-specific. The CLI loads only `KollectSnapshotSink`, so the CLI requirement
-covers `s3` and `gcs` end to end; for `postgres` and `mongodb`, the probe and export paths share
-the constructors. The CLI SHALL exit 2 (`ExitFatalError`) on a CA error, before any export.
+error values) and SHALL build the clients through the same constructors with the CA passed.
+
+#### Scenario: Probe and export agree
+
+- **WHEN** a sink with a CA and a conflicting DSN/URI is probed and exported
+- **THEN** both fail with the same terminal error
+
+### Requirement: SCT-5.2 Operator and CLI reach the same result
+
+For the same sink spec and Secrets, the operator and the CLI SHALL either both succeed with the
+same CA or both fail with the same shared error, which each MAY wrap with its own context;
+Secret-lookup errors stay source-specific.
 
 #### Scenario: Same result on both paths
 
@@ -233,10 +275,11 @@ the constructors. The CLI SHALL exit 2 (`ExitFatalError`) on a CA error, before 
 - **WHEN** the operator resolver and the CLI resolver run on each
 - **THEN** each pair returns the same PEM, or errors that wrap the same shared error
 
-#### Scenario: Probe and export agree
+### Requirement: SCT-5.3 The CLI stops on a CA error before any export
 
-- **WHEN** a sink with a CA and a conflicting DSN/URI is probed and exported
-- **THEN** both fail with the same terminal error
+The CLI loads only `KollectSnapshotSink`, so the CLI requirement covers `s3` and `gcs` end to end;
+for `postgres` and `mongodb`, the probe and export paths share the constructors. The CLI SHALL exit
+2 (`ExitFatalError`) on a CA error, before any export.
 
 #### Scenario: CLI stops before any export
 
@@ -251,12 +294,21 @@ The sink reference pages for `KollectSnapshotSink` and `KollectDatabaseSink`, th
 `docs/REQUIREMENTS.md` FR-EXP-7, the security architecture TLS section and the pipeline CLI guide
 SHALL describe: append to system roots, the Postgres sslmode and `sslrootcert` rules, the MongoDB
 URI rules, the terminal errors of SCT-4 (naming that the missing-key and both-sources errors apply
-to every sink type, Kafka and NATS included), and that strict pinning is not offered. Shared field
-descriptions SHALL NOT claim append semantics for Kafka, NATS or the Git probe, which keep their
-pool. The v0.22.0 release notes SHALL carry one line naming the behaviour change.
+to every sink type, Kafka and NATS included), and that strict pinning is not offered.
 
 #### Scenario: Requirement claim matches the code
 
 - **WHEN** FR-EXP-7 is read after this change
 - **THEN** it lists every sink type that applies the CA (Git, GitLab, Kafka, NATS, S3, GCS,
   Postgres, MongoDB) and none that does not
+
+### Requirement: SCT-6.2 No append claim for pool-keeping sinks, and a release-note line
+
+Shared field descriptions SHALL NOT claim append semantics for Kafka, NATS or the Git probe, which
+keep their pool. The v0.22.0 release notes SHALL carry one line naming the behaviour change.
+
+#### Scenario: Pool-keeping sinks and release notes
+
+- **WHEN** the shared field descriptions and the v0.22.0 release notes are read
+- **THEN** no shared field description claims append semantics for Kafka, NATS or the Git probe
+- **AND** the release notes carry one line naming the behaviour change
