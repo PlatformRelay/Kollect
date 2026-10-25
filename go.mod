@@ -1,6 +1,6 @@
 module github.com/platformrelay/kollect
 
-go 1.27.2
+go 1.27.3
 
 require (
 	cloud.google.com/go/bigquery v1.85.0
