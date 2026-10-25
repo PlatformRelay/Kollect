@@ -14,64 +14,6 @@ completed scheduled run of the reported workflow
 that run's attempt, so an event dropped by the concurrency group or delivered late is harmless.
 When that list is empty (the workflow has no completed scheduled run yet), the reporter SHALL make no
 write and exit 0.
-The reporter SHALL take the action that the run's row of the decision table below names; it
-opens an issue only when the run is in the failure class and the newest bot issue for the
-workflow is absent, or closed with an older key. The reporter SHALL judge the run by its conclusion
-only: a job that fails under `continue-on-error` does not change the run's conclusion and is not
-reported, so no job or step of a reported workflow SHALL set `continue-on-error`. Before the reporter runs, the workflow SHALL create the `ci-failure` label idempotently
-(`gh label create ci-failure --force` with a fixed `--color` and `--description`, so a repeat
-changes nothing).
-
-Ordering key: `(run_number, run_attempt)` of the run acted on, compared lexicographically.
-Recorded key: the key in the last bot marker (CFR-4) of the newest bot issue for the workflow,
-open or closed. "None" means no such issue exists.
-
-| Conclusion of the run acted on | Newest bot issue | Key vs recorded | Action |
-| --- | --- | --- | --- |
-| failure class: `failure`, `timed_out`, `startup_failure`, `cancelled` with a started job | none | - | open an issue (marker `event=failure`) |
-| failure class | open | newer | one comment (marker `event=failure`) |
-| failure class | open | equal or older | no write |
-| failure class | closed | newer | open a new issue; never reopen |
-| failure class | closed | equal or older | no write |
-| `success` | none | - | no write |
-| `success` | open | newer | recovery comment (marker `event=recovery`), then close |
-| `success` | open | equal, last marker `event=recovery` | close only (retry of a failed close) |
-| `success` | open | equal with last marker `event=failure`, or older | no write |
-| `success` | closed | any | no write |
-| no-op class: `cancelled` with no started job, `action_required`, `neutral`, `skipped`, `stale` | any | any | no write |
-
-#### Scenario: First failure
-
-- **WHEN** the nightly fails and no bot issue for it exists
-- **THEN** one issue is created with the label, the marker and a body listing the failed jobs
-
-#### Scenario: Label missing
-
-- **WHEN** the repository has no `ci-failure` label and a reported run fails
-- **THEN** the label is created and the issue is opened with it; when the label already exists the create step succeeds and changes nothing the reporter relies on
-
-#### Scenario: Job failed under continue-on-error
-
-- **WHEN** a job of a reported workflow runs with `continue-on-error: true`, fails, and every other job passes, so the run concludes `success`
-- **THEN** the run is treated as a success and no issue is opened; this is why reported workflows set no `continue-on-error` (the nightly `race` job lost it in SINK-BREAKER-RACE-01), and `hack/test/ci_failure_report_test.sh` fails when one does
-
-A job counts as started only when its `steps` array is non-empty (`startedAt` is set on jobs that never
-ran; probe T1.1 F3).
-
-#### Scenario: Cancelled without a started job
-
-- **WHEN** a run is `cancelled` and none of its jobs started (a dispatch replaced a pending run)
-- **THEN** the reporter does nothing
-
-#### Scenario: Timed out, startup failure or cancelled mid-run
-
-- **WHEN** a run completes `timed_out` or `startup_failure`, or `cancelled` with started jobs
-- **THEN** it is treated as a failure and never as success
-
-#### Scenario: Other conclusions
-
-- **WHEN** a run completes `action_required`, `neutral`, `skipped` or `stale`
-- **THEN** the reporter makes no write
 
 #### Scenario: Dropped or late event
 
@@ -82,6 +24,121 @@ ran; probe T1.1 F3).
 
 - **WHEN** two reports run at the same time for one workflow
 - **THEN** there SHALL NOT be two open issues; the reporter's concurrency group is `ci-failure-report-` plus `workflow_run.workflow_id`, with `cancel-in-progress: false`
+
+### Requirement: CFR-1.2 The reporter acts by the decision table
+
+The reporter SHALL take the action that the run's row of the decision table (CFR-1.3 to CFR-1.7)
+names; it opens an issue only when the run is in the failure class and the newest bot issue for
+the workflow is absent, or closed with an older key.
+
+Ordering key: `(run_number, run_attempt)` of the run acted on, compared lexicographically.
+Recorded key: the key in the last bot marker (CFR-4) of the newest bot issue for the workflow,
+open or closed. "None" means no such issue exists.
+
+#### Scenario: First failure
+
+- **WHEN** the nightly fails and no bot issue for it exists
+- **THEN** one issue is created with the label, the marker and a body listing the failed jobs
+
+### Requirement: CFR-1.3 Decision table: failure, no issue or an open one
+
+A failure-class run SHALL be handled by these rows of the decision table:
+
+| Conclusion of the run acted on | Newest bot issue | Key vs recorded | Action |
+| --- | --- | --- | --- |
+| failure class: `failure`, `timed_out`, `startup_failure`, `cancelled` with a started job | none | - | open an issue (marker `event=failure`) |
+| failure class | open | newer | one comment (marker `event=failure`) |
+| failure class | open | equal or older | no write |
+
+#### Scenario: Timed out, startup failure or cancelled mid-run
+
+- **WHEN** a run completes `timed_out` or `startup_failure`, or `cancelled` with started jobs
+- **THEN** it is treated as a failure and never as success
+
+### Requirement: CFR-1.4 Decision table: failure, closed issue
+
+A failure-class run SHALL be handled by these rows of the decision table:
+
+| Conclusion of the run acted on | Newest bot issue | Key vs recorded | Action |
+| --- | --- | --- | --- |
+| failure class | closed | newer | open a new issue; never reopen |
+| failure class | closed | equal or older | no write |
+
+#### Scenario: Newer failure with a closed issue
+
+- **WHEN** the newest bot issue for the workflow is closed and the run acted on fails with a newer key
+- **THEN** the reporter opens a new issue and does not reopen the closed one
+
+### Requirement: CFR-1.5 Decision table: success, no issue or a closed one
+
+A run that concludes `success` SHALL be handled by these rows of the decision table:
+
+| Conclusion of the run acted on | Newest bot issue | Key vs recorded | Action |
+| --- | --- | --- | --- |
+| `success` | none | - | no write |
+| `success` | closed | any | no write |
+
+#### Scenario: Success with a closed issue
+
+- **WHEN** a run concludes `success` and the newest bot issue for the workflow is closed
+- **THEN** the reporter makes no write, whatever the key
+
+### Requirement: CFR-1.6 Decision table: success, open issue
+
+A run that concludes `success` SHALL be handled by these rows of the decision table:
+
+| Conclusion of the run acted on | Newest bot issue | Key vs recorded | Action |
+| --- | --- | --- | --- |
+| `success` | open | newer | recovery comment (marker `event=recovery`), then close |
+| `success` | open | equal, last marker `event=recovery` | close only (retry of a failed close) |
+| `success` | open | equal with last marker `event=failure`, or older | no write |
+
+#### Scenario: Newer success with an open issue
+
+- **WHEN** a run concludes `success` with a newer key and the newest bot issue for the workflow is open
+- **THEN** the reporter writes a recovery comment (marker `event=recovery`) and then closes the issue
+
+### Requirement: CFR-1.7 Decision table: no-op rows
+
+A run in the no-op class SHALL be handled by this row of the decision table:
+
+| Conclusion of the run acted on | Newest bot issue | Key vs recorded | Action |
+| --- | --- | --- | --- |
+| no-op class: `cancelled` with no started job, `action_required`, `neutral`, `skipped`, `stale` | any | any | no write |
+
+#### Scenario: Cancelled without a started job
+
+- **WHEN** a run is `cancelled` and none of its jobs started (a dispatch replaced a pending run)
+- **THEN** the reporter does nothing
+
+#### Scenario: Other conclusions
+
+- **WHEN** a run completes `action_required`, `neutral`, `skipped` or `stale`
+- **THEN** the reporter makes no write
+
+### Requirement: CFR-1.8 The run is judged by its conclusion only
+
+The reporter SHALL judge the run by its conclusion only: a job that fails under `continue-on-error` does not change the run's conclusion and is not
+reported, so no job or step of a reported workflow SHALL set `continue-on-error`.
+
+#### Scenario: Job failed under continue-on-error
+
+- **WHEN** a job of a reported workflow runs with `continue-on-error: true`, fails, and every other job passes, so the run concludes `success`
+- **THEN** the run is treated as a success and no issue is opened; this is why reported workflows set no `continue-on-error` (the nightly `race` job lost it in SINK-BREAKER-RACE-01), and `hack/test/ci_failure_report_test.sh` fails when one does
+
+A job counts as started only when its `steps` array is non-empty (`startedAt` is set on jobs that never
+ran; probe T1.1 F3).
+
+### Requirement: CFR-1.9 The label is created before the report
+
+Before the reporter runs, the workflow SHALL create the `ci-failure` label idempotently
+(`gh label create ci-failure --force` with a fixed `--color` and `--description`, so a repeat
+changes nothing).
+
+#### Scenario: Label missing
+
+- **WHEN** the repository has no `ci-failure` label and a reported run fails
+- **THEN** the label is created and the issue is opened with it; when the label already exists the create step succeeds and changes nothing the reporter relies on
 
 ### Requirement: CFR-2 Repeated failures update the same issue
 
@@ -151,40 +208,50 @@ read from the newest bot issue for the workflow whether it is open or closed.
 
 The reporter SHALL find the newest bot issue for a workflow by label `ci-failure` AND bot
 authorship AND a bot marker whose workflow key equals `workflow_run.path`, through the issue list
-API (never `--search`), and SHALL NOT trust a title match. Because `gh issue list --label` is served
-by the search API, the lookup SHALL list by author only (`--author 'github-actions[bot]'`, no
-`--label`) and check the label client-side. Issue authors carry `is_bot`; comment authors do not
-(they read `github-actions`), so a comment counts as bot-authored by that login on a bot issue. The lookup SHALL be complete: it passes
-an explicit `--limit` and exits non-zero when the result count reaches it. The bot marker is the first line of a
-bot-authored issue body or comment:
-`<!-- ci-failure-report v1 workflow=<path> run_id=<id> key=<run_number>.<run_attempt> event=<failure|recovery> -->`.
-The reporter SHALL read markers only from the first line of bot-authored bodies and comments; a
-marker anywhere else, or in text by any other author, SHALL be ignored.
+API (never `--search`), and SHALL NOT trust a title match.
 
 #### Scenario: Spoofed issue
 
 - **WHEN** a user opens an issue titled like the reporter's with the label
 - **THEN** the reporter does not comment on or close it; it opens its own
 
-#### Scenario: Spoofed marker in a user comment
-
-- **WHEN** a user comments on the bot issue with a marker carrying a higher key
-- **THEN** the marker is ignored and the next newer run is reported normally
-
 #### Scenario: Both workflows have an open issue
 
 - **WHEN** the `E2E nightly` and `Go patch lag` issues are both open and the nightly passes
 - **THEN** only the nightly's issue gets the recovery comment and closes
+
+### Requirement: CFR-4.2 The lookup lists by author and is complete
+
+Because `gh issue list --label` is served
+by the search API, the lookup SHALL list by author only (`--author 'github-actions[bot]'`, no
+`--label`) and check the label client-side. Issue authors carry `is_bot`; comment authors do not
+(they read `github-actions`), so a comment counts as bot-authored by that login on a bot issue. The lookup SHALL be complete: it passes
+an explicit `--limit` and exits non-zero when the result count reaches it.
+
+#### Scenario: Lookup reaches its limit
+
+- **WHEN** the author-only issue list returns as many issues as its `--limit`
+- **THEN** the reporter exits non-zero instead of acting on a possibly incomplete list
+
+### Requirement: CFR-4.3 Markers are read only from the first line of bot text
+
+The bot marker is the first line of a
+bot-authored issue body or comment:
+`<!-- ci-failure-report v1 workflow=<path> run_id=<id> key=<run_number>.<run_attempt> event=<failure|recovery> -->`.
+The reporter SHALL read markers only from the first line of bot-authored bodies and comments; a
+marker anywhere else, or in text by any other author, SHALL be ignored.
+
+#### Scenario: Spoofed marker in a user comment
+
+- **WHEN** a user comments on the bot issue with a marker carrying a higher key
+- **THEN** the marker is ignored and the next newer run is reported normally
 
 ### Requirement: CFR-5 The body names what failed and cannot execute or inject log text
 
 `hack/ci/ci-failure-issue-body.sh` SHALL emit the marker as its first line, then the workflow,
 the run URL, each failed or timed-out job by name and at most 50 `FAIL` lines, and SHALL keep the
 whole body, marker included, under 60000 characters. It SHALL NOT evaluate or expand any text
-taken from logs. It SHALL fence each excerpt with a backtick run longer than any backtick run
-inside it, and SHALL neutralise `@` in run-supplied text outside a fence so that it cannot mention
-a user. When the failed logs cannot be fetched, the body SHALL still list the failed jobs and say
-"logs unavailable".
+taken from logs.
 
 #### Scenario: Two failed jobs
 
@@ -205,6 +272,13 @@ a user. When the failed logs cannot be fetched, the body SHALL still list the fa
 
 - **WHEN** a log line contains `$(touch pwned)` or backticks
 - **THEN** it appears as text and nothing runs
+
+### Requirement: CFR-5.2 Excerpts are fenced, mentions neutralised, missing logs said
+
+`hack/ci/ci-failure-issue-body.sh` SHALL fence each excerpt with a backtick run longer than any backtick run
+inside it, and SHALL neutralise `@` in run-supplied text outside a fence so that it cannot mention
+a user. When the failed logs cannot be fetched, the body SHALL still list the failed jobs and say
+"logs unavailable".
 
 #### Scenario: Markdown injection
 
@@ -238,18 +312,25 @@ only after checking that it is numeric. Its own failures are visible only in the
 
 `hack/test/ci_failure_report_test.sh` SHALL cover every row of CFR-1's decision table and the body
 builder on recorded fixtures with a fake `gh`, with mutants, and SHALL run in both modes (plain
-and `--self-test`) in the required `lint` job on `pull_request`, asserting that wiring itself. It
-SHALL assert the workflow's wiring: every name under `on.workflow_run.workflows` equals the `name:`
-of exactly one file under `.github/workflows/`, the event and repository guards, the concurrency
-group, the permissions (job: exactly `contents: read`, `actions: read`, `issues: write`), no
-checkout of the triggering run, and the label-create step before the report step. The workflow's
-`dangerous-triggers` suppression SHALL live in `.github/zizmor.yml`, with a reason comment above
-the rule key and another above the ignore entry.
+and `--self-test`) in the required `lint` job on `pull_request`, asserting that wiring itself.
 
 #### Scenario: Decision row removed
 
 - **WHEN** the recovery branch, the ordering check, the label-and-author lookup or the workflow filter is removed (mutants)
 - **THEN** the test SHALL fail
+
+#### Scenario: Test unwired
+
+- **WHEN** both `lint` steps that run the test are deleted
+- **THEN** the test's own wiring assertion SHALL fail
+
+### Requirement: CFR-7.2 The test asserts the workflow's wiring
+
+`hack/test/ci_failure_report_test.sh`
+SHALL assert the workflow's wiring: every name under `on.workflow_run.workflows` equals the `name:`
+of exactly one file under `.github/workflows/`, the event and repository guards, the concurrency
+group, the permissions (job: exactly `contents: read`, `actions: read`, `issues: write`), no
+checkout of the triggering run, and the label-create step before the report step.
 
 #### Scenario: Reported workflow renamed
 
@@ -261,10 +342,11 @@ the rule key and another above the ignore entry.
 - **WHEN** the `gh label create ci-failure --force` step is removed or moved after the report step
 - **THEN** the test SHALL fail
 
-#### Scenario: Test unwired
+### Requirement: CFR-7.3 The zizmor suppression is in the config, with reasons
 
-- **WHEN** both `lint` steps that run the test are deleted
-- **THEN** the test's own wiring assertion SHALL fail
+The workflow's
+`dangerous-triggers` suppression SHALL live in `.github/zizmor.yml`, with a reason comment above
+the rule key and another above the ignore entry.
 
 #### Scenario: Suppression without reason
 
