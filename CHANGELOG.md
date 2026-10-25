@@ -11,6 +11,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Re-export when the status write fails [4016ac5](https://github.com/platformrelay/kollect/commit/4016ac5f96674c503b4429701282565f3343b415)
+
+- **controller:** Debounce a sink only while its export is current [ee26ccc](https://github.com/platformrelay/kollect/commit/ee26ccc8aaad6880881213eeee4fbfb286c881f4)
+
+- **controller:** Keep the per-sink export record across passes [86665f1](https://github.com/platformrelay/kollect/commit/86665f101b3c20bda83c93d5be7ce81366015605)
+
+- **controller:** [**breaking**] Report debounced sinks as synced [6222453](https://github.com/platformrelay/kollect/commit/622245367d9ec188d631f4b52d233112af817cfd)
+
 - **deps:** Build with Go 1.27.3 for GO-2026-6809 ([#492](https://github.com/platformrelay/kollect/pull/492))[d2ba2ed](https://github.com/platformrelay/kollect/commit/d2ba2edbbbe79f8efbde131e72d8f075bc049308)
 
 - **ci:** Never cancel a breaking-marker run [e8e0b48](https://github.com/platformrelay/kollect/commit/e8e0b48f816a4cddf91947984ebe9c03e277f109)
