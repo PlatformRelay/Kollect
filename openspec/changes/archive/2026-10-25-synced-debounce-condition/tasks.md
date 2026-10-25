@@ -255,7 +255,7 @@ Test rules for every group:
 
 ## 5. Land
 
-- [ ] 5.1 Integrator: branch review, PR, green required CI, then `openspec archive
+- [x] 5.1 Integrator: branch review, PR, green required CI, then `openspec archive
   synced-debounce-condition` as the last commit; the reviewer re-checks the archive commit (the
   moved change and the living spec) and the record names both revisions; required CI green on
   the final head before merge (`docs/development/spec-workflow.md` *Land*). File the follow-up
