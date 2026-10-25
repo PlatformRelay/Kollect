@@ -74,6 +74,9 @@ today leaves the per-sink entries as they were). The aggregate reason SHALL be `
 when another sink exported in the pass, and otherwise the reason the reconciler sets today
 (`Progressing`, `ExportTerminal` or `SpillRequired`). A debounced sink in the same pass SHALL
 keep `Synced=True`, reason `Debounced`. `Ready` and `Degraded` SHALL behave as before this change.
+Only export passes write per-sink entries: a pass that stops before it exports (scope denial,
+unreachable or missing sink, spill gate, registry missing) leaves them as the last export pass
+wrote them, and the aggregate `Synced=False` with the blocking reason reports the problem.
 
 #### Scenario: One sink exported, one failed
 
@@ -162,7 +165,9 @@ re-exports an unchanged payload. The `lastTransitionTime` of the aggregate and p
 conditions SHALL change only when that condition's status changes. A sink's
 `status.sinkExports[]` entry SHALL keep its `lastExportTime` and `lastChecksum` across a pass
 that debounces the sink or in which its export fails; only a successful export to that sink SHALL
-replace them.
+replace them. When the status write that records a successful export fails, the next pass SHALL
+export that sink again rather than debounce it, so a debounce never rests on an export that the
+persisted entry does not record.
 
 #### Scenario: Repeated debounced reconciles
 
@@ -182,6 +187,12 @@ replace them.
 - **GIVEN** a sink whose last successful export set `lastExportTime` T1 and `lastChecksum` C1
 - **WHEN** a later pass debounces the sink, and a pass after that fails to export a changed payload to it
 - **THEN** its entry still has `lastExportTime` T1 and `lastChecksum` C1 after each of those passes
+
+#### Scenario: Status write lost after an export
+
+- **GIVEN** an inventory whose only sink, with interval `0s`, exported payload C2 in a pass
+- **WHEN** that pass's status write fails (for example on a conflict) and the next pass sees C2 unchanged
+- **THEN** the next pass exports the sink again and SHALL NOT debounce it, for both inventory kinds
 
 ### Requirement: SDC-6 The read API reports debounced sinks
 
@@ -211,8 +222,9 @@ SHALL be used only for a binding that has no entry.
 `docs/crds/kollectclusterinventory.md` SHALL describe a debounced sink as `Synced=True`, reason
 `Debounced`, the aggregate as `Synced=True` when no sink failed, and `PartiallySynced` as "some
 sinks exported, some failed". ADR-0413 §6 SHALL carry a note that this change amends its
-aggregate rule. The upgrade guide SHALL state, under its v0.22.0 behaviour changes, that a
-debounce no longer sets `Synced=False` or `PartiallySynced`, and list the new messages.
+aggregate rule. The upgrade guide SHALL state, in its behaviour changes for the release after
+v0.21.0 (*Smaller behaviour changes (after v0.21.0)*), that a debounce no longer sets
+`Synced=False` or `PartiallySynced`, and list the new messages.
 
 #### Scenario: No doc says a debounce sets Synced=False
 

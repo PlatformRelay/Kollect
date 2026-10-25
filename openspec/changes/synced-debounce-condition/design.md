@@ -127,6 +127,13 @@ after a failed one (payload back at C1, or a `requestedAt` value set back). Ever
 already retried, because its checksum, generation or `requestedAt` value differs from the
 baseline.
 
+`record` runs when an export succeeds, before the status write that persists its entry. When that
+write fails (a conflict, or any other error), `updateStatus` calls `forgetUnpersistedExports`,
+which drops the baseline of every sink exported in the pass (`perSinkExportOutcome.markExported`
+lists them). Without it a `0s` binding would debounce, for as long as its payload stays the same,
+against an export whose time and checksum the persisted entry never recorded (branch review
+round 1). The cost is one repeated export of the same payload after a failed status write.
+
 ### Steady state without writes (SDC-5)
 
 With these changes, a debounced pass that follows a debounced pass, with nothing changed,

@@ -1,7 +1,7 @@
 # Loop — synced-debounce-condition (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/synced-debounce-condition` · Branch: `feat/synced-debounce-condition` · Base: `origin/main` @ `0686f8276` · Started: 2026-10-20 · Reviewers: two independent review legs (duo)
-Next: L done (T0.1, G1-G4 closed) — 5.1 integrator, then stage B branch review
+Next: stage B round 2 on the B1 fix, then 5.1 integrator
 Task prompt: local, `agent-context/loops/synced-debounce-condition/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SYNCED-DEBOUNCE-STEADY-STATE (kind quick start 2026-10-20; operator: fix before v0.22.0).
@@ -14,7 +14,7 @@ tasks.md.
 - [x] P plan + tasks — written; decision 2026-10-20 `synced-debounce-reason` (both legs A, pending operator validation); spec set committed: `b7871afcd`
 - [x] R spec-set review — round 1 on `a268bfc96`: reviewer-a BLOCK, reviewer-b BLOCK; four CRITICALs accepted (sink identity, preview resolve error, total-failure per-sink write, read API key) and fixed with the WARNINGs (`reviews/R-spec-set/verification.md`). Round 2 (last) on `138dada5c`: reviewer-a BLOCK, reviewer-b CONCERNS; CRITICAL inventory UID fixed, CRITICAL Secret-repointed destination rejected as scope (decision 2026-10-19 `rotation-zero-interval`), WARNINGs fixed (`reviews/R-spec-set/round-2/verification.md`). No CRITICAL remains
 - [x] L task loop — see *Tasks* (T0.1, G1-G4 closed; 5.1 is the integrator's)
-- [ ] B branch review — `reviews/B-branch/round-N/`
+- [ ] B branch review — `reviews/B-branch/round-N/`. Round 1 on `df2c9e501` (rebased on `origin/main` @ `cf448c4a6`): reviewer-a (adversarial) REQUEST_CHANGES, reviewer-b (spec) CONCERNS; two WARNINGs fixed (B1 status-write loss, breaking footer), spec and FR-EXP-9 wording fixed, three NOTEs rejected or deferred (`reviews/B-branch/round-1/verification.md`)
 - [ ] Hand-off — `pr-description.md` · PR: none
 
 ## Fitness functions
@@ -29,7 +29,7 @@ tasks.md.
 | OpenSpec strict | `task spec:validate` | triggered | green | per spec-set edit |
 | Full local gate | `task check` | holistic | green on base | at B |
 
-Holistic run at B: not run yet.
+Holistic run at B: `task check` on `df2c9e501` exit 1, four gates red, none from this branch (vulncheck: Go standard library advisory, red on `main`; gitleaks-detect: git-ignored mkdocs cache, clean without it; two dist guards: no `operator-sdk`, green after `make operator-sdk`); `go vet -tags=integration ./...` exit 0; per-commit gate: 10 commits build and pass the changed packages (`reviews/B-branch/round-1/verification.md`).
 
 ## Triage
 
@@ -44,6 +44,11 @@ Holistic run at B: not run yet.
 | R2 | Secret repointing the sink not detected by the debounce | CRITICAL→scope | reviewer-a, reviewer-b | reject (scope) | non-goal; decision 2026-10-19 `rotation-zero-interval` | no |
 | R2 | Read API time fallback; untested failure branches and snapshot path; doc regex; archive re-review; G1 T1/C1 regression; test-change rows | WARNING/NOTE | both | fix | `reviews/R-spec-set/round-2/verification.md` | no |
 | L T0.1 | Preview test relies on the resolve-error fall-back SDC-4 removes; not in *Impact* | SPEC | reviewer-a agreed | fix | proposal *Impact*, tasks.md 3.1 (G3 *Test changes* row); decisions.md 2026-10-20 `preview-test-fixture` | no |
+| B1 | Status write lost after an export: next pass debounces against an unpersisted baseline | WARNING | reviewer-a | fix | B1.1/B1.2, SDC-5 | no |
+| B1 | `BREAKING CHANGE:` footer omits the read API and per-sink message changes | WARNING | reviewer-a | fix | G1 commit footer reworded | no |
+| B1 | SDC-3 lacks the pre-export carve-out; FR-EXP-9 doc hit; SDC-7 section name | WARNING/NOTE | reviewer-b | fix | spec, `docs/REQUIREMENTS.md` | no |
+| B1 | Aggregate denominator; entry without condition | NOTE | reviewer-b | reject | unreachable today | no |
+| B1 | Read API rebuilds the sink key by hand | NOTE | reviewer-b | defer | SINK-KEY-SHARED-HELPER (pull request) | no |
 | R1 | SDC-5 self-contradiction; impossible mixed scenario; second precision; missed message tests; missed docs; matrix breadth; citations | WARNING/NOTE | both | fix | spec, tasks, proposal (`reviews/R-spec-set/verification.md`) | no |
 
 ## Tasks
