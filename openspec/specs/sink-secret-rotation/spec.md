@@ -13,15 +13,29 @@ backend is drained before it is closed, and a `0s` inventory retries a transient
 The operator's backend pool SHALL key each pooled backend on the sink spec and on the identity and
 `resourceVersion` of every Secret the backend build reads for that spec: `spec.secretRef`,
 `git.auth.secretRef`, `kafka.secretRef`, `nats.secretRef`, `postgres.databaseRef`,
-`mongodb.databaseRef`, `bigquery.secretRef` and `tls.caSecretRef`. When any of them changed since
-the pooled backend was built, the next export or cleanup that acquires the sink's backend SHALL
-build a new backend from the current Secret values and SHALL NOT use the old one. The pool SHALL
-read these Secrets from the API server, not from the informer cache, so a Secret change SHALL take
-effect on the first export attempt that starts after the change was written, without a restart, a
-spec change or a sink delete. For a binding with an export interval > 0 that attempt comes within
-the interval. For a binding whose interval is `0s` ("export only on material change") a Secret
-change alone SHALL NOT trigger an export; the change takes effect at the next export that a
-material change, a spec generation change or a `kollect.dev/requestedAt` change causes.
+`mongodb.databaseRef`, `bigquery.secretRef` and `tls.caSecretRef`.
+
+#### Scenario: Every reference kind is covered
+
+- **WHEN** any field of type `SecretReference` exists in `KollectSinkSpec`
+- **THEN** the pool fingerprint includes the Secret it names for the sink types that read it, and a test fails if a reference field is added without that coverage
+
+#### Scenario: Unchanged Secrets do not rebuild
+
+- **WHEN** two exports run with no change to the sink spec or any referenced Secret
+- **THEN** both use the same pooled backend instance
+- **AND** the pool SHALL NOT build a second backend
+
+#### Scenario: An unrelated Secret does not rebuild
+
+- **WHEN** a Secret that the sink does not reference changes between two exports
+- **THEN** both exports use the same pooled backend instance
+
+### Requirement: SCR-1.2 A changed Secret builds a new backend
+
+When any Secret from SCR-1's list changed since the pooled backend was built, the next export or
+cleanup that acquires the sink's backend SHALL build a new backend from the current Secret values
+and SHALL NOT use the old one.
 
 #### Scenario: Rotated database password is used by the next export
 
@@ -35,6 +49,18 @@ material change, a spec generation change or a `kollect.dev/requestedAt` change 
 - **GIVEN** an S3 sink with `tls.caSecretRef: ca` whose pooled backend trusts CA X
 - **WHEN** Secret `ca` is updated to CA Y and the next export runs against an HTTPS server whose certificate CA Y signed
 - **THEN** the TLS handshake succeeds against CA Y, where the backend built from CA X fails it
+
+#### Scenario: Rotate and rotate back
+
+- **GIVEN** a sink whose backend was built from Secret value A
+- **WHEN** the Secret changes to B, an export runs, the Secret changes back to A, and another export runs
+- **THEN** each export runs on a backend built from the value current at its acquire, three builds in total
+
+### Requirement: SCR-1.3 Referenced Secrets are read from the API server
+
+The pool SHALL read the Secrets of SCR-1 from the API server, not from the informer cache, so a
+Secret change SHALL take effect on the first export attempt that starts after the change was
+written, without a restart, a spec change or a sink delete.
 
 #### Scenario: Change visible before the cache sees it
 
@@ -54,43 +80,27 @@ material change, a spec generation change or a `kollect.dev/requestedAt` change 
 - **WHEN** an export runs
 - **THEN** the backend is built from that Secret and SHALL NOT fail with an unknown-namespace cache error
 
-#### Scenario: Every reference kind is covered
+### Requirement: SCR-1.4 The export interval decides when a Secret change takes effect
 
-- **WHEN** any field of type `SecretReference` exists in `KollectSinkSpec`
-- **THEN** the pool fingerprint includes the Secret it names for the sink types that read it, and a test fails if a reference field is added without that coverage
+For a binding with an export interval > 0 the export attempt that picks up a Secret change comes
+within the interval. For a binding whose interval is `0s` ("export only on material change") a
+Secret change alone SHALL NOT trigger an export; the change takes effect at the next export that a
+material change, a spec generation change or a `kollect.dev/requestedAt` change causes.
 
-#### Scenario: Rotate and rotate back
+#### Scenario: A Secret change alone does not export under a zero interval
 
-- **GIVEN** a sink whose backend was built from Secret value A
-- **WHEN** the Secret changes to B, an export runs, the Secret changes back to A, and another export runs
-- **THEN** each export runs on a backend built from the value current at its acquire, three builds in total
-
-#### Scenario: Unchanged Secrets do not rebuild
-
-- **WHEN** two exports run with no change to the sink spec or any referenced Secret
-- **THEN** both use the same pooled backend instance
-- **AND** the pool SHALL NOT build a second backend
-
-#### Scenario: An unrelated Secret does not rebuild
-
-- **WHEN** a Secret that the sink does not reference changes between two exports
-- **THEN** both exports use the same pooled backend instance
+- **GIVEN** a binding whose export interval is `0s` and whose sink's pooled backend was built from Secret value A
+- **WHEN** the Secret changes to B and nothing else changes
+- **THEN** no export runs
+- **AND** the next export that a material change causes runs on a backend built from B
 
 ### Requirement: SCR-2 A deleted or emptied referenced Secret fails the next export
 
 When a Secret from SCR-1's list is missing, or exists with no non-empty value in its data, the
 acquire SHALL fail with an error that names the Secret and its namespace, SHALL retire the sink's
 pooled backend, and the export or cleanup SHALL fail without contacting the sink. Cleanup for a
-stream sink (Kafka, NATS), which never contacts the sink, SHALL decide retained before reading
-any Secret. The error SHALL
-be retryable (not terminal), so the export succeeds again once the Secret is restored, without a
-change to the sink; this holds for the uncached metadata read too, whose not-found result SHALL
-carry the same retryable error and not a terminal API status. For an inventory whose interval is
-`0s`, the retry comes from SCR-7. An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to
-ambient credentials. A metadata read that fails for any other reason (timeout, cancelled
-context, forbidden) observed no change: it SHALL fail that acquire only and SHALL NOT retire the
-pooled backend on its own account; a mismatch with the pooled entry that an earlier successful
-read of the same acquire saw still retires that entry.
+stream sink (Kafka, NATS), which never contacts the sink, SHALL decide retained before reading any
+Secret.
 
 #### Scenario: Deleted credential Secret
 
@@ -104,33 +114,10 @@ read of the same acquire saw still retires that entry.
 - **WHEN** the referenced Secret is updated so that its data has no keys, or only empty values, and the next export runs
 - **THEN** the export fails with an error naming that Secret as having no data, and the pooled backend is retired
 
-#### Scenario: Emptied S3 Secret does not use ambient credentials
-
-- **GIVEN** an S3 sink with `secretRef` and an AWS identity available to the process
-- **WHEN** every key of the Secret is removed and an export runs
-- **THEN** the export fails naming the Secret, and no S3 client is built
-
 #### Scenario: Deleted CA Secret
 
 - **WHEN** the `tls.caSecretRef` Secret of a sink with a pooled backend is deleted and the next export runs
 - **THEN** the export fails naming that Secret
-
-#### Scenario: Delete, then restore
-
-- **GIVEN** a sink whose export failed because its Secret was deleted
-- **WHEN** the Secret is created again and the export is retried
-- **THEN** the export succeeds on a newly built backend, with no change to the sink object
-
-#### Scenario: An observed change retires even when the rebuild read fails
-
-- **WHEN** the metadata read shows a changed `resourceVersion` and the full read then times out
-- **THEN** that acquire fails and the old pooled backend is retired
-
-#### Scenario: A cancelled read does not retire a shared backend
-
-- **GIVEN** a pooled backend used by two inventories
-- **WHEN** one inventory's acquire fails because its context was cancelled during the Secret read
-- **THEN** that acquire fails, and the other inventory's next acquire gets the same pooled backend
 
 #### Scenario: Stream sink cleanup with a deleted Secret
 
@@ -144,16 +131,54 @@ read of the same acquire saw still retires that entry.
 - **WHEN** the release runs
 - **THEN** it fails naming the Secret and the inventory stays `Terminating`, until the Secret is restored or `kollect.dev/force-cleanup: "true"` is set
 
+### Requirement: SCR-2.2 The missing-Secret error is retryable
+
+The error of SCR-2 SHALL be retryable (not terminal), so the export succeeds again once the Secret
+is restored, without a change to the sink; this holds for the uncached metadata read too, whose
+not-found result SHALL carry the same retryable error and not a terminal API status. For an
+inventory whose interval is `0s`, the retry comes from SCR-7.
+
+#### Scenario: Delete, then restore
+
+- **GIVEN** a sink whose export failed because its Secret was deleted
+- **WHEN** the Secret is created again and the export is retried
+- **THEN** the export succeeds on a newly built backend, with no change to the sink object
+
+### Requirement: SCR-2.3 An empty S3 or GCS Secret does not fall back to ambient credentials
+
+An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to ambient credentials.
+
+#### Scenario: Emptied S3 Secret does not use ambient credentials
+
+- **GIVEN** an S3 sink with `secretRef` and an AWS identity available to the process
+- **WHEN** every key of the Secret is removed and an export runs
+- **THEN** the export fails naming the Secret, and no S3 client is built
+
+### Requirement: SCR-2.4 A failed metadata read does not retire the backend on its own
+
+A metadata read that fails for any other reason (timeout, cancelled context, forbidden) observed no
+change: it SHALL fail that acquire only and SHALL NOT retire the pooled backend on its own account;
+a mismatch with the pooled entry that an earlier successful read of the same acquire saw still
+retires that entry.
+
+#### Scenario: An observed change retires even when the rebuild read fails
+
+- **WHEN** the metadata read shows a changed `resourceVersion` and the full read then times out
+- **THEN** that acquire fails and the old pooled backend is retired
+
+#### Scenario: A cancelled read does not retire a shared backend
+
+- **GIVEN** a pooled backend used by two inventories
+- **WHEN** one inventory's acquire fails because its context was cancelled during the Secret read
+- **THEN** that acquire fails, and the other inventory's next acquire gets the same pooled backend
+
 ### Requirement: SCR-3 Retiring a pooled backend never cuts an export in flight
 
 Every path that removes a pooled backend (a referenced Secret change, a spec change, a deleted or
 emptied Secret, the delete eviction) SHALL remove it from the pool at once, so no later acquire
 receives it, and SHALL close it exactly once, after the last export or cleanup that acquired it
 has released it. A retired backend SHALL NOT be closed while an acquirer holds it, and the idle
-TTL SHALL NOT remove an entry that is held. A Secret change observed by a successful read SHALL
-retire the old backend even when the rebuild then fails, and the old backend SHALL NOT be used as
-a fallback. A backend built after a pool miss that came before another acquire stored or
-retired the sink's entry SHALL NOT be pooled.
+TTL SHALL NOT remove an entry that is held.
 
 #### Scenario: Rotation during a long export
 
@@ -171,22 +196,10 @@ retired the sink's entry SHALL NOT be pooled.
 - **WHEN** several exports acquire concurrently after one Secret change
 - **THEN** they all receive the same new backend, every surplus build is closed, and each retired backend is closed exactly once (race detector clean)
 
-#### Scenario: Failed rebuild retires the old backend
-
-- **GIVEN** a pooled backend built from Secret value A
-- **WHEN** the Secret changes to a value the constructor rejects and an export runs
-- **THEN** the export fails, the old backend is retired, and no export SHALL use the old backend afterwards
-
 #### Scenario: Sink deleted during an export
 
 - **WHEN** the sink is deleted while E1 holds its backend
 - **THEN** the pool no longer holds the entry, no later acquire re-pools a backend for that sink, and the backend is closed after E1 releases it
-
-#### Scenario: A slower builder does not replace a newer entry
-
-- **GIVEN** acquire G1 missed and is building from Secret version 5
-- **WHEN** the Secret moves to version 6, acquire G2 builds and stores B6, and then G1's build completes
-- **THEN** B6 stays pooled, G1 exports on its own backend under an owning release that closes it, and the next acquire gets B6
 
 #### Scenario: The TTL does not close a held backend
 
@@ -199,21 +212,46 @@ retired the sink's entry SHALL NOT be pooled.
 - **WHEN** the next export runs
 - **THEN** the rows are written in a session of `u2`, and after release no session of `u1` from the operator remains
 
+### Requirement: SCR-3.2 A failed rebuild still retires the old backend
+
+A Secret change observed by a successful read SHALL retire the old backend even when the rebuild
+then fails, and the old backend SHALL NOT be used as a fallback.
+
+#### Scenario: Failed rebuild retires the old backend
+
+- **GIVEN** a pooled backend built from Secret value A
+- **WHEN** the Secret changes to a value the constructor rejects and an export runs
+- **THEN** the export fails, the old backend is retired, and no export SHALL use the old backend afterwards
+
+### Requirement: SCR-3.3 A build that lost the race is not pooled
+
+A backend built after a pool miss that came before another acquire stored or retired the sink's
+entry SHALL NOT be pooled.
+
+#### Scenario: A slower builder does not replace a newer entry
+
+- **GIVEN** acquire G1 missed and is building from Secret version 5
+- **WHEN** the Secret moves to version 6, acquire G2 builds and stores B6, and then G1's build completes
+- **THEN** B6 stays pooled, G1 exports on its own backend under an owning release that closes it, and the next acquire gets B6
+
 ### Requirement: SCR-4 Credential values stay out of logs, events, status and the pool
 
 No error or log line that this change adds, and no Kubernetes Event or status condition that
-carries one, SHALL contain a value from a referenced Secret. The pool key SHALL be computed from
-Secret metadata (namespace, name, UID, `resourceVersion`) and the spec only; an acquire that hits
-the pool SHALL NOT read the Secret's `data` or `stringData` and SHALL keep no other metadata
-(annotations included) beyond those four fields; and the pool SHALL NOT keep the resolved Secret
-data after the backend is built. Errors returned by a third-party client's constructor or connect call are
-outside this requirement.
+carries one, SHALL contain a value from a referenced Secret. Errors returned by a third-party
+client's constructor or connect call are outside this requirement.
 
 #### Scenario: Sentinel values never surface
 
 - **GIVEN** referenced Secrets whose values are the sentinels `sentinel-pass`, `sentinel-token`, `sentinel-key`
 - **WHEN** the Secret is rotated, emptied and deleted, and exports run after each step
 - **THEN** no returned error, captured log line, recorded Event or inventory status condition contains a sentinel
+
+### Requirement: SCR-4.2 The pool keeps Secret metadata only
+
+The pool key SHALL be computed from Secret metadata (namespace, name, UID, `resourceVersion`) and
+the spec only; an acquire that hits the pool SHALL NOT read the Secret's `data` or `stringData` and
+SHALL keep no other metadata (annotations included) beyond those four fields; and the pool SHALL
+NOT keep the resolved Secret data after the backend is built.
 
 #### Scenario: Fingerprint carries no Secret data
 
@@ -246,12 +284,29 @@ run from the config directory, so a changed Secret manifest takes effect on the 
 
 The sink reference pages, the security architecture and the troubleshooting page SHALL state that
 a Secret change takes effect on the next export, that a deleted or emptied Secret stops exports
-until restored, and that a Secret change alone does not trigger an export. They SHALL state that
+until restored, and that a Secret change alone does not trigger an export.
+
+#### Scenario: Rotation rules are stated
+
+- **WHEN** the sink reference pages, the security architecture and the troubleshooting page are read
+- **THEN** each states that a Secret change takes effect on the next export, that a deleted or emptied Secret stops exports until restored, and that a Secret change alone does not trigger an export
+
+### Requirement: SCR-6.2 Documentation states when the next export comes
+
+The sink reference pages, the security architecture and the troubleshooting page SHALL state that
 for an interval > 0 the next export comes within the interval, and that for `exportMinInterval:
 0s` ("export only on material change") it comes only with the next material change, spec
-generation or `kollect.dev/requestedAt` change. The upgrade notes
-SHALL carry a v0.22.0 entry with the compatibility table from `design.md`, and the sentences that
-say a built backend keeps its CA until the spec changes SHALL be removed.
+generation or `kollect.dev/requestedAt` change.
+
+#### Scenario: Export timing is stated
+
+- **WHEN** the sink reference pages, the security architecture and the troubleshooting page are read
+- **THEN** each states that for an interval > 0 the next export comes within the interval, and that for `exportMinInterval: 0s` it comes only with the next material change, spec generation or `kollect.dev/requestedAt` change
+
+### Requirement: SCR-6.3 The upgrade notes carry the rotation change
+
+The upgrade notes SHALL carry a v0.22.0 entry with the compatibility table from `design.md`, and
+the sentences that say a built backend keeps its CA until the spec changes SHALL be removed.
 
 #### Scenario: Stale statement removed
 
@@ -264,10 +319,7 @@ When a `KollectInventory` or `KollectClusterInventory` whose inventory-level exp
 `0s` has an export in which every sink export failed and the aggregated error is not terminal,
 the reconcile SHALL return a requeue after `validation.ZeroIntervalWatchdog` (30 s). A terminal
 aggregated error SHALL NOT requeue, as today. An inventory with an interval > 0 SHALL keep its
-current requeue (its interval). An unchanged `0s` inventory whose last export succeeded SHALL NOT
-be exported again by this requeue or any other timer. Its coalescing state is in memory and ages
-out 48 h after its last export or skip, so a controller restart, or more than 48 h on a degraded
-path that returns before the export, leads to one export of the current payload.
+current requeue (its interval).
 
 #### Scenario: Deleted Secret under a zero interval is retried
 
@@ -286,6 +338,13 @@ path that returns before the export, leads to one export of the current payload.
 
 - **WHEN** every sink export of a `0s` inventory fails with a terminal error
 - **THEN** the reconcile result has no requeue
+
+### Requirement: SCR-7.2 A successful zero-interval export is not repeated
+
+An unchanged `0s` inventory whose last export succeeded SHALL NOT be exported again by the SCR-7
+requeue or any other timer. Its coalescing state is in memory and ages out 48 h after its last
+export or skip, so a controller restart, or more than 48 h on a degraded path that returns before
+the export, leads to one export of the current payload.
 
 #### Scenario: Unchanged, successfully exported zero-interval inventory is not re-exported
 
