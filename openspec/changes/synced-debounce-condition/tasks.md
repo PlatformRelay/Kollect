@@ -240,6 +240,19 @@ Test rules for every group:
   pair across lines is covered by the named edits. `task lint:markdown` reports `0 issues`; the
   `hack/test/docs_*` guards pass.
 
+## B. Branch review fixes
+
+- [x] B1.1 Tests (red on `df2c9e501`): `TestKollectInventory_StatusWriteFailureAfterExport_ReExports`
+  and `TestKollectClusterInventory_StatusWriteFailureAfterExport_ReExports` in
+  `internal/controller/per_sink_export_persist_test.go`: an export pass whose status write
+  conflicts is followed by a pass that exports again (`0s` interval, unchanged payload); a control
+  case whose write succeeds debounces (SDC-5 *Status write lost after an export*).
+- [x] B1.2 Implement: `perSinkExportOutcome.markExported` at both record sites and
+  `forgetUnpersistedExports` on the failed status write in both `updateStatus` methods (design
+  *When a sink counts as up to date*). Spec wording: SDC-3 pre-export carve-out, SDC-7 upgrade
+  section name; `docs/REQUIREMENTS.md` FR-EXP-9 no longer pairs a debounce with
+  `PartiallySynced`.
+
 ## 5. Land
 
 - [ ] 5.1 Integrator: branch review, PR, green required CI, then `openspec archive
@@ -261,8 +274,9 @@ Test rules for every group:
 | SDC-4 | *controls* envtests "exports a changed payload inside the interval", "exports on the first pass of a new reconciler" | exported, never `Debounced` | not-run | evidence/G3.md |
 | SDC-5 | `TestCarryOverSinkExport`; envtests "keeps the per-sink export record across a debounced pass" (both kinds), "keeps the last successful export record across a partly failed pass" | T1, C1 and `lastTransitionTime` kept | not-run | evidence/G2.md |
 | SDC-5 | envtests "writes no status on a repeated debounced reconcile" (both kinds; namespaced with a database and a snapshot sink), "export pass and debounce pass give the same aggregate" | `resourceVersion` unchanged, no Event; identical aggregate | not-run | evidence/G2.md |
+| SDC-5 | `TestKollectInventory_StatusWriteFailureAfterExport_ReExports`, `TestKollectClusterInventory_StatusWriteFailureAfterExport_ReExports` (each with a control case); mutations B1 M1-M5, M0 | next pass exports after a failed status write; control debounces | not-run | reviews/B-branch/round-1/verification.md |
 | SDC-6 | `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | `<family>/<name>` entries; `True/Debounced` → `debounced` with its own time; nil time → empty | not-run | evidence/G1.md |
 | SDC-1–6 | mutations G1 M1-M3, G2 M1-M3, G3 M1-M5, each group with M0 | each target test fails; M0 survives | not-run | evidence/G1.md, G2.md, G3.md |
 | SDC-1–6 | `go test -race -count=3` on the changed packages | pass, N=3 | not-run | evidence/G1.md, G2.md, G3.md |
-| SDC-7 | named edits; per-line `rg` doc check; `task lint:markdown`; `hack/test/docs_*` guards | edits quoted; only the two notes and FR-EXP-9 match; `0 issues`; guards pass | not-run | evidence/G4.md |
+| SDC-7 | named edits; per-line `rg` doc check; `task lint:markdown`; `hack/test/docs_*` guards | edits quoted; only the two notes match (FR-EXP-9 reworded in B1.2); `0 issues`; guards pass | not-run | evidence/G4.md |
 | all | independent review of the spec set and the branch | recorded verdicts | not-run | `reviews/R-spec-set/`, `reviews/B-branch/` |

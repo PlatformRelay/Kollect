@@ -444,6 +444,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			}
 
 			r.sinkCoalesce.record(invKey, exportKey, job.identity, inv.Generation, sinkChecksum, requestedAt, now)
+			outcome.markExported(invKey, exportKey)
 			exportTime := metav1.Now()
 			job.status.LastExportTime = &exportTime
 			job.status.LastChecksum = sinkChecksum
@@ -609,6 +610,7 @@ func (r *KollectInventoryReconciler) updateStatus(
 	}
 
 	if err := r.Status().Update(ctx, inv); err != nil {
+		forgetUnpersistedExports(&r.sinkCoalesce, outcome)
 		if apierrors.IsConflict(err) {
 			return ctrl.Result{RequeueAfter: conflictRequeueAfter}, nil
 		}

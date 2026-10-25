@@ -219,6 +219,27 @@ type perSinkExportOutcome struct {
 
 	failedSinks []string
 	exportErrs  []error
+
+	// trackerKey and exportedSinks name the debounce baselines this pass recorded, so a failed
+	// status write can drop them again (forgetUnpersistedExports).
+	trackerKey    string
+	exportedSinks []string
+}
+
+// markExported notes that exportKey exported in this pass and its debounce baseline was recorded.
+func (o *perSinkExportOutcome) markExported(invKey, exportKey string) {
+	o.trackerKey = invKey
+	o.exportedSinks = append(o.exportedSinks, exportKey)
+}
+
+// forgetUnpersistedExports drops the debounce baseline of every sink exported in this pass. The
+// reconcilers call it when the status write that records those exports fails (SDC-5): the next
+// pass then exports them again rather than debouncing against a baseline the persisted
+// status.sinkExports[] entry does not show.
+func forgetUnpersistedExports(tracker *perSinkCoalesceTracker, outcome perSinkExportOutcome) {
+	for _, exportKey := range outcome.exportedSinks {
+		tracker.forget(outcome.trackerKey, exportKey)
+	}
 }
 
 // addSinkFailure accumulates a per-sink export failure (EC-P1-06): FailedSink
