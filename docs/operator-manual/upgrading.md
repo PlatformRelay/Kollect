@@ -124,11 +124,11 @@ bumping versions. Common upgrade touchpoints:
 | Area | Check |
 | --- | --- |
 | `tenantMode` / `watchNamespaces` | RBAC shape changes require reconciling Role vs ClusterRole |
-| `mode` | Removed after v0.21.0. The chart ignores it; delete it from your values and overlays |
+| `mode` | Removed in v0.22.0. The chart ignores it; delete it from your values and overlays |
 | `featureGates.*` | New gates default off; dev overlays may differ from production values |
 | `webhooks.certManager.create` | `false` requires an operator-provided serving Secret and webhook CA trust; the chart does not generate either |
 
-### Sink CA trust (after v0.21.0) { #sink-ca-trust }
+### Sink CA trust (v0.22.0) { #sink-ca-trust }
 
 S3, GCS, Postgres and MongoDB sinks now use `spec.tls.caBundle` / `caSecretRef`, trusted in
 addition to the system roots. Before, they ignored it. A CA that cannot take effect now fails the
@@ -166,7 +166,7 @@ backend on their next export.
 
 Rollback to v0.21.x restores the old behaviour; nothing is persisted.
 
-### Sink Secret rotation (after v0.21.0) { #sink-secret-rotation }
+### Sink Secret rotation (v0.22.0) { #sink-secret-rotation }
 
 From v0.22.0 the operator picks up a changed sink Secret without a restart. Each export, and
 each cleanup that builds the backend, reads the metadata of every Secret the sink references (credential, database and CA
@@ -279,7 +279,7 @@ moved or renamed project) now fail; set `spec.endpoint` to the final URL. Kafka 
 `spec.tls`: a sink with a CA bundle switches its broker connection to TLS, so make sure the broker
 listener it points at speaks TLS.
 
-### Git export ownership by inventory identity (after v0.21.0) { #git-export-ownership }
+### Git export ownership by inventory identity (v0.22.0) { #git-export-ownership }
 
 Git and GitLab layout exports record which inventory owns each file, keyed by kind, cluster,
 namespace and name ([ADR-0422](../adr/0422-inventory-export-identity.md)). Cluster inventories
@@ -336,7 +336,7 @@ release needs the repository, a Git or GitLab sink with a broken credential now 
 deletion in `Terminating` until the credential is fixed or `kollect.dev/force-cleanup: "true"` is
 set (which leaves the record in place).
 
-### Git engine convergence: `engine: cli` removed (after v0.21.0) { #git-engine-convergence }
+### Git engine convergence: `engine: cli` removed (v0.22.0) { #git-engine-convergence }
 
 The git snapshot sink exports through one engine, `go-git`
 ([ADR-0803](../adr/0803-git-engine-convergence.md)). `spec.git.engine` accepts only `go-git` (or
@@ -365,7 +365,7 @@ policy to the ambient ssh configuration. SSH key-exchange preferences are otherw
 apart from two additions x/crypto already implements (`mlkem768x25519-sha256`,
 `diffie-hellman-group16-sha512`).
 
-### CRD schema changes (after v0.21.0) { #crd-schema-changes }
+### CRD schema changes (v0.22.0) { #crd-schema-changes }
 
 This release changes the CRD schemas, so apply the new `install-crds.yaml` **before** the chart
 upgrade ([step 2](#2-apply-crd-schema)); `helm upgrade` does not update CRDs.
@@ -378,7 +378,7 @@ upgrade ([step 2](#2-apply-crd-schema)); `helm upgrade` does not update CRDs.
 - The family sink CRDs carry the new `spec.tls` trust rules in their field descriptions
   ([Sink CA trust](#sink-ca-trust)).
 
-### Pipeline CLI (after v0.21.0) { #pipeline-cli-changes }
+### Pipeline CLI (v0.22.0) { #pipeline-cli-changes }
 
 `kollect-pipeline` resolves sink references the way the operator does.
 
@@ -405,7 +405,7 @@ upgrade ([step 2](#2-apply-crd-schema)); `helm upgrade` does not update CRDs.
 
 See [Pipeline CLI troubleshooting](../guides/pipeline-cli.md#troubleshooting).
 
-### Smaller behaviour changes (after v0.21.0) { #smaller-behaviour-changes }
+### Smaller behaviour changes (v0.22.0) { #smaller-behaviour-changes }
 
 - **Git `401` and `403` are terminal.** A Git or GitLab sink now reads the HTTP status from
   go-git's typed errors and from status phrases (`status code: 403`, `returned error: 403`,
@@ -461,6 +461,9 @@ See [Pipeline CLI troubleshooting](../guides/pipeline-cli.md#troubleshooting).
   `kollect_export_debounced_total` instead. Scripts that match the old messages (`sink(s)
   debounced`, `sinks debounced`, `exported to N sink(s)`, `exported N item(s) to N sink(s)`,
   `next export in`) must match the new ones above. `Ready`, `Degraded` and Events are unchanged.
+- **Go API: two unused condition constants removed.** The `api/v1alpha1` package no longer
+  exports `ConditionConnected` or `ConditionCredentialsVerified`. The operator never wrote either
+  condition, so no status changes; only Go code that imports these constants stops compiling.
 - **Helm value `mode` removed.** The chart no longer has a `mode` value. The values schema still
   accepts unknown keys, so a leftover `mode: single` is silently ignored; delete it from your
   values.
