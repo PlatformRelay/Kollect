@@ -67,15 +67,24 @@ The `${env:VAR}` substitution SHALL apply to the git auth Secret and the CA Secr
 
 For the same snapshot sink spec and the same Secrets in the sink's namespace, referenced without an
 explicit namespace or with the sink's namespace, the credential data and CA the CLI gives the backend
-SHALL equal what the operator's resolver produces, and the CLI SHALL fail when the operator's
-resolver fails. Two differences are intended and out of this scope: an unqualified reference in the
-CLI matches a config-dir Secret of that name in any namespace (unchanged CLI matching), and a
-reference with an empty name fails in the CLI where the operator treats it as unset.
+SHALL equal what the operator's resolver produces.
 
 #### Scenario: Parity over reference combinations
 
 - **WHEN** the CLI and the operator resolver are given each combination of `secretRef`, `git.auth.secretRef`, `tls.caBundle` and `tls.caSecretRef`, present or missing
 - **THEN** both produce the same data and CA, or both fail
+
+### Requirement: CSC-5.2 The CLI fails where the operator fails, with two intended differences
+
+For the same snapshot sink spec and Secrets as CSC-5, the CLI SHALL fail when the operator's
+resolver fails. Two differences are intended and out of the CSC-5 scope: an unqualified reference
+in the CLI matches a config-dir Secret of that name in any namespace (unchanged CLI matching), and
+a reference with an empty name fails in the CLI where the operator treats it as unset.
+
+#### Scenario: Referenced Secret missing
+
+- **WHEN** a sink's `secretRef` names a Secret that the operator resolver cannot find and that no config-dir namespace holds, so the resolver fails
+- **THEN** the CLI SHALL fail too
 
 ### Requirement: CSC-6 The backend is released on every export outcome
 
