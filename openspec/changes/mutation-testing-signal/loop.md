@@ -13,7 +13,7 @@ Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.
 - [x] R spec-set review — round 1 (9a5426f3a): astra BLOCK, opus CONCERNS; V1-V5 CRITICAL (config extensions, inert CLI/env thresholds, fail-open scans, unpinned commands, env narrowing) verified by a scratch gremlins probe and fixed with V6-V15 (2b14ee6c2), V7 partly rejected, V16 no action. Round 2 (last, 2b14ee6c2): astra BLOCK, opus CONCERNS; R2-1..R2-13 all fixed, unreviewed (task skip keys, lint reaching `task mutation`, report hand-off). No CRITICAL remains open
 - [x] L task loop — 0.1, 1.1, 2.1–2.8 closed (3.1 is hand-off); probe finding F1: warm test cache made every mutant TIMED OUT → runner exports GOFLAGS=-count=1
 - [x] B branch review — round 1: task check 1 red (consistency_toolchain_pins --self-test nested bump, passes alone on branch and base → ENVIRONMENT, /tmp pressure); astra BLOCK (B1 CRITICAL all-timed-out read as green → fixed: formatter fails no-kill/no-live packages, --timeout-coefficient=10), opus CONCERNS; fixes 4.1–4.7 reviewed (astra APPROVE); round 2 (last): astra BLOCK, opus CONCERNS — R2-1..3 fixed unreviewed (cap). No CRITICAL open. HEAD c2781dfb1
-- [ ] Hand-off — pending · `pr-description.md` · PR: none
+- [x] Hand-off — merged; post-merge rows MUT-1, MUT-3, MUT-4 passed (evidence/post-merge.md); archived 2026-10-25
 
 ## Fitness functions
 
