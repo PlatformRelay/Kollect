@@ -8,41 +8,56 @@ clone, and the properties that keep them safe to publish and true.
 
 ### Requirement: PAC-1 A committed AGENTS.md exists with the essentials
 
-The repository SHALL contain a tracked `AGENTS.md` at the root with: the commands `task build`,
+The repository SHALL contain a tracked `AGENTS.md` at the root with the commands `task build`,
 `task test`, `task lint`, `task verify`, `task check`, `task scrub`, `task lint:markdown` and
-`task spec:validate`; every `task <name>` it names in a code span or code fence (flags and
-leading `VAR=value` assignments skipped) SHALL be defined (as `task --list-all` reports it); a
-list of the gates the full local gate runs, between the lines `<!-- gates:start -->` and
-`<!-- gates:end -->`, that SHALL name (one code span per gate) exactly the gate names
-`hack/check.sh` passes to `run_gate` (the first argument of each non-comment `run_gate` call, not
-the `run_gate()` definition), so a gate added or removed later reds the test until `AGENTS.md`
-follows;
-the CI-enforced rules that exist on `main` when the change lands; the commit and merge
-conventions (linking `CONTRIBUTING.md`); the spec workflow (linking
-`docs/development/spec-workflow.md`); and the checklists of PAC-3. Every relative link in it SHALL
-resolve (`hack/test/repo_root_links_test.sh` already checks tracked root Markdown). Its content
-SHALL be written from tracked files only (code, `Taskfile.yml`, `hack/`, `.github/workflows/`,
-`CONTRIBUTING.md`, `docs/`), never from a private agent file or from untracked notes.
+`task spec:validate`. Every relative link in it SHALL resolve
+(`hack/test/repo_root_links_test.sh` already checks tracked root Markdown).
 
 #### Scenario: Fresh clone
 
 - **WHEN** a clone has no ignored files
 - **THEN** `AGENTS.md` is present and `git ls-files AGENTS.md` lists it
 
+#### Scenario: Required command missing
+
+- **WHEN** `AGENTS.md` no longer names `task check`
+- **THEN** the test SHALL fail and name the missing command
+
+### Requirement: PAC-1.2 Every named task is defined
+
+Every `task <name>` that `AGENTS.md` names in a code span or code fence (flags and leading
+`VAR=value` assignments skipped) SHALL be defined (as `task --list-all` reports it).
+
 #### Scenario: Command that does not exist
 
 - **WHEN** `AGENTS.md` tells the reader to run `task frobnicate`
 - **THEN** the test SHALL fail and name `frobnicate`
+
+### Requirement: PAC-1.3 The gate list matches the full local gate
+
+`AGENTS.md` SHALL contain a list of the gates the full local gate runs, between the lines
+`<!-- gates:start -->` and `<!-- gates:end -->`, that SHALL name (one code span per gate) exactly
+the gate names `hack/check.sh` passes to `run_gate` (the first argument of each non-comment
+`run_gate` call, not the `run_gate()` definition), so a gate added or removed later reds the test
+until `AGENTS.md` follows.
 
 #### Scenario: Gate list drifts
 
 - **WHEN** `hack/check.sh` gains a `run_gate` that `AGENTS.md` does not name, or `AGENTS.md` names a gate `hack/check.sh` does not run
 - **THEN** the test SHALL fail and name the gate
 
-#### Scenario: Required command missing
+### Requirement: PAC-1.4 AGENTS.md states the rules and conventions from tracked files
 
-- **WHEN** `AGENTS.md` no longer names `task check`
-- **THEN** the test SHALL fail and name the missing command
+`AGENTS.md` SHALL also contain the CI-enforced rules that exist on `main` when the change lands;
+the commit and merge conventions (linking `CONTRIBUTING.md`); the spec workflow (linking
+`docs/development/spec-workflow.md`); and the checklists of PAC-3. Its content SHALL be written
+from tracked files only (code, `Taskfile.yml`, `hack/`, `.github/workflows/`, `CONTRIBUTING.md`,
+`docs/`), never from a private agent file or from untracked notes.
+
+#### Scenario: Convention link missing
+
+- **WHEN** `AGENTS.md` no longer links `CONTRIBUTING.md` or `docs/development/spec-workflow.md`
+- **THEN** the test SHALL fail and name the missing link
 
 ### Requirement: PAC-2 Other assistants are pointed, not duplicated
 
@@ -70,10 +85,7 @@ replaces an ignored file with a tracked one on pull without warning.
 `AGENTS.md` SHALL include "when adding X, update these places" checklists under the headings
 `### When adding a CRD field`, `### When adding a metric` and `### When adding a sink`, and every repository path and every code symbol named in them SHALL
 exist in the tree. A path is a code-span token containing `/`; a `<placeholder>` segment is read
-as `*` and a glob SHALL match at least one tracked file. A symbol is a code-span Go identifier
-named on the same checklist line as one or more `.go` paths, and SHALL be declared in at least one
-of them (a `func` including a method, a `type`, or a `var`/`const`, also inside a grouped
-`var (`/`const (` block).
+as `*` and a glob SHALL match at least one tracked file.
 
 #### Scenario: Metric checklist
 
@@ -90,16 +102,24 @@ of them (a `func` including a method, a `type`, or a `var`/`const`, also inside 
 - **WHEN** the author applies each checklist to a throwaway change
 - **THEN** no gate fires for a place the checklist did not name (recorded in task 2.1)
 
+### Requirement: PAC-3.2 Checklist symbols are declared in the named files
+
+A symbol in a PAC-3 checklist is a code-span Go identifier named on the same checklist line as
+one or more `.go` paths, and SHALL be declared in at least one of them (a `func` including a
+method, a `type`, or a `var`/`const`, also inside a grouped `var (`/`const (` block).
+
+#### Scenario: Symbol no longer declared
+
+- **WHEN** a checklist line names `Catalog` with `internal/metrics/metrics_catalog.go` and none of the `.go` paths on that line declares `Catalog`
+- **THEN** the test SHALL fail
+
 ### Requirement: PAC-4 The public contract is scrub-safe and machine-independent
 
 Committed agent files (`AGENTS.md`, `.github/copilot-instructions.md`), in both their
 working-tree content and their index (staged) content, SHALL NOT match any pattern in
 `hack/scrub-patterns.txt`, applied with the semantics of `hack/scrub.sh` (`rg -i -f`:
 case-insensitive, regular-expression, substring), and an `rg` error or a missing `rg` SHALL fail
-the test rather than read as "no match". They SHALL NOT contain an absolute home path, a
-`~/`-relative path, or a reference to a gitignored harness path (`agent-context/`, `.claude/`,
-`.agents/`, `.cursor/`, `AGENTS.local.md`, `worktrees/`). The test SHALL NOT contain a scrub
-pattern as a literal: it reads them from `hack/scrub-patterns.txt` at run time.
+the test rather than read as "no match".
 
 #### Scenario: Scrub-pattern match
 
@@ -116,10 +136,21 @@ pattern as a literal: it reads them from `hack/scrub-patterns.txt` at run time.
 - **WHEN** a forbidden string or a private header is staged for `AGENTS.md` while the working-tree file is clean
 - **THEN** the test SHALL fail
 
+### Requirement: PAC-4.2 Scrub patterns are read at run time
+
+The test SHALL NOT contain a scrub pattern as a literal: it reads them from
+`hack/scrub-patterns.txt` at run time.
+
 #### Scenario: Pattern list unreadable
 
 - **WHEN** `hack/scrub-patterns.txt` is missing or empty
 - **THEN** the test SHALL fail
+
+### Requirement: PAC-4.3 The public contract names no private or machine path
+
+Committed agent files (`AGENTS.md`, `.github/copilot-instructions.md`) SHALL NOT contain an
+absolute home path, a `~/`-relative path, or a reference to a gitignored harness path
+(`agent-context/`, `.claude/`, `.agents/`, `.cursor/`, `AGENTS.local.md`, `worktrees/`).
 
 #### Scenario: Maintainer-only path
 
@@ -151,22 +182,11 @@ pattern as a literal: it reads them from `hack/scrub-patterns.txt` at run time.
 `agent_contract_test.sh --self-test` SHALL run throwaway-copy mutants for every scenario of
 PAC-1, PAC-2, PAC-4 and PAC-6 and for the PAC-3 stale-reference and checklist-entry cases (the
 fresh-clone scenario is covered by the missing-file mutant; the dry-run scenario is evidence,
-not a mutant). Each mutant SHALL red the plain check with the diagnostic of the clause it
-targets (other diagnostics may appear too); the self-test SHALL fail when a mutant stays green or
-reds without its target diagnostic. A no-op copy SHALL pass. Mutant strings for scrub patterns and
-hostnames SHALL be built at run time. Mutants that change the guard itself (the PAC-6
-empty-pattern set, the PAC-4 fixed-string matcher) expect the copy's own `--self-test` to fail
-for the reason they name, and SHALL NOT recurse: a nested self-test runs with
-`AGENT_CONTRACT_NESTED=1` and skips every mutant that would start another nested self-test.
+not a mutant). A no-op copy SHALL pass.
 
 #### Scenario: Mutant survives
 
 - **WHEN** a planted scrub string does not turn the test red
-- **THEN** the self-test SHALL fail and name the mutant
-
-#### Scenario: Wrong clause
-
-- **WHEN** a mutant reds the plain check only with an unrelated diagnostic (a missing tool, an unloadable Taskfile, another clause) and not with its target diagnostic
 - **THEN** the self-test SHALL fail and name the mutant
 
 #### Scenario: No-op copy
@@ -174,33 +194,40 @@ for the reason they name, and SHALL NOT recurse: a nested self-test runs with
 - **WHEN** the self-test runs an unmodified copy
 - **THEN** the plain check on it SHALL pass
 
+### Requirement: PAC-5.2 Each mutant reds with its target diagnostic
+
+Each `agent_contract_test.sh --self-test` mutant SHALL red the plain check with the diagnostic of
+the clause it targets (other diagnostics may appear too); the self-test SHALL fail when a mutant
+stays green or reds without its target diagnostic.
+
+#### Scenario: Wrong clause
+
+- **WHEN** a mutant reds the plain check only with an unrelated diagnostic (a missing tool, an unloadable Taskfile, another clause) and not with its target diagnostic
+- **THEN** the self-test SHALL fail and name the mutant
+
+### Requirement: PAC-5.3 Mutants build their strings at run time and do not recurse
+
+Mutant strings for scrub patterns and hostnames SHALL be built at run time. Mutants that change
+the guard itself (the PAC-6 empty-pattern set, the PAC-4 fixed-string matcher) expect the copy's
+own `--self-test` to fail for the reason they name, and SHALL NOT recurse: a nested self-test
+runs with `AGENT_CONTRACT_NESTED=1` and skips every mutant that would start another nested
+self-test.
+
+#### Scenario: Nested self-test
+
+- **WHEN** a mutant that changes the guard itself runs the copy's own `--self-test` with `AGENT_CONTRACT_NESTED=1`
+- **THEN** that nested self-test SHALL skip every mutant that would start another nested self-test
+
 ### Requirement: PAC-6 Hostnames and internal hosts are refused generically
 
 Committed agent files SHALL NOT contain, matched case-insensitively by a generic pattern set in
 the test in addition to `hack/scrub-patterns.txt`: a host whose last DNS label is `internal`,
 `local`, `lan` or `home.arpa` (a label ends at a character outside `[a-z0-9-]`; `cluster.local`
-service names, `localhost` and file names such as `mise.local.toml` are allowed); an IPv4 address
-in `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16` or `100.64.0.0/10` (valid
-octets only), or an IPv6 unique-local address (`fc00::/7`); a line starting with an SSH `Host`
-directive; or an scp-style `user@host:path` address (no `://` before the `@`, the host not
-followed by a port number), other than `git@github.com:` (image digests such as
-`kollect@sha256:` and URLs with credentials are not this form). They SHALL NOT contain the short hostname of the machine running the test, read
-at run time (`AGENT_CONTRACT_HOSTNAME` overrides it for tests), matched case-insensitively as a
-whole word; the check is skipped with a printed reason when the name cannot be read, is shorter
-than 4 characters, is `localhost`, is a task name `task --list-all` reports, or occurs as a
-whole word in a tracked Markdown file other than the agent files (an ordinary word, such as
-`operator`). A contributor may set `AGENT_CONTRACT_HOSTNAME=` (empty) to skip it. This check is
-supplementary: it sees only the machine it runs on, and the independent review covers other
-machines' names. No hostname is written into a tracked file.
+service names, `localhost` and file names such as `mise.local.toml` are allowed).
 
 #### Scenario: Internal host string
 
 - **WHEN** `AGENTS.md` names a host under `.internal` or a `10.x.y.z` address
-- **THEN** the test SHALL fail
-
-#### Scenario: Running host's name
-
-- **WHEN** `AGENTS.md` contains the short hostname of the machine running the test
 - **THEN** the test SHALL fail
 
 #### Scenario: Allowed look-alikes
@@ -212,3 +239,51 @@ machines' names. No hostname is written into a tracked file.
 
 - **WHEN** the generic pattern set is emptied in a copy
 - **THEN** the self-test SHALL fail
+
+### Requirement: PAC-6.2 Private IP addresses are refused
+
+Committed agent files SHALL NOT contain, matched case-insensitively by the same generic pattern
+set: an IPv4 address in `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16` or
+`100.64.0.0/10` (valid octets only), or an IPv6 unique-local address (`fc00::/7`).
+
+#### Scenario: Private address
+
+- **WHEN** `AGENTS.md` contains `192.168.1.10` or the IPv6 unique-local address `fd00::1`
+- **THEN** the test SHALL fail
+
+### Requirement: PAC-6.3 SSH host directives and scp-style addresses are refused
+
+Committed agent files SHALL NOT contain, matched case-insensitively by the same generic pattern
+set: a line starting with an SSH `Host` directive; or an scp-style `user@host:path` address (no
+`://` before the `@`, the host not followed by a port number), other than `git@github.com:`
+(image digests such as `kollect@sha256:` and URLs with credentials are not this form).
+
+#### Scenario: SSH host directive or scp-style address
+
+- **WHEN** `AGENTS.md` contains a line starting with an SSH `Host` directive (such as `Host buildhost`) or an scp-style address such as `deploy@buildhost:repo.git`
+- **THEN** the test SHALL fail
+
+### Requirement: PAC-6.4 The running host's name is refused
+
+Committed agent files SHALL NOT contain the short hostname of the machine running the test, read
+at run time (`AGENT_CONTRACT_HOSTNAME` overrides it for tests), matched case-insensitively as a
+whole word. A contributor may set `AGENT_CONTRACT_HOSTNAME=` (empty) to skip it. This check is
+supplementary: it sees only the machine it runs on, and the independent review covers other
+machines' names. No hostname is written into a tracked file.
+
+#### Scenario: Running host's name
+
+- **WHEN** `AGENTS.md` contains the short hostname of the machine running the test
+- **THEN** the test SHALL fail
+
+### Requirement: PAC-6.5 The hostname check skips names it cannot judge
+
+The PAC-6.4 check SHALL be skipped with a printed reason when the name cannot be read, is shorter
+than 4 characters, is `localhost`, is a task name `task --list-all` reports, or occurs as a
+whole word in a tracked Markdown file other than the agent files (an ordinary word, such as
+`operator`).
+
+#### Scenario: Hostname is an ordinary word
+
+- **WHEN** the short hostname is `operator` and `operator` occurs as a whole word in a tracked Markdown file other than the agent files
+- **THEN** the hostname check SHALL be skipped with a printed reason and SHALL NOT fail the test
