@@ -11,9 +11,8 @@ can bypass `protect-main` reaches only the one step that pushes.
 In `.github/workflows/changelog-sync.yaml`, job `sync`, every `actions/checkout` step SHALL set
 `persist-credentials: false` and SHALL NOT set a `token:` input. The output of the
 `actions/create-github-app-token` step SHALL be referenced by no step other than the step that
-pushes to `main`, in any spelling, as the whole step object, or through `toJSON(steps)`, and the
-App's secrets SHALL be referenced by the minting step alone, never from a workflow- or job-level
-`env:`, and no other step SHALL read secrets through `toJSON(secrets)` or a computed index. (Moved from DUA-6 of `dependency-update-automation`.)
+pushes to `main`, in any spelling, as the whole step object, or through `toJSON(steps)`. (Moved
+from DUA-6 of `dependency-update-automation`.)
 
 #### Scenario: Honest workflow
 
@@ -35,15 +34,22 @@ App's secrets SHALL be referenced by the minting step alone, never from a workfl
 - **WHEN** a step other than the push step references the minting step (`steps.<id>.outputs`, `steps['<id>']['outputs']`, `toJSON(steps.<id>)`) or reads `toJSON(steps)`
 - **THEN** the guard SHALL fail naming that step
 
-#### Scenario: App secrets used outside the minting step
-
-- **WHEN** any step other than the `create-github-app-token` step, or a workflow- or job-level `env:`, references one of the secrets that step mints from, or a non-minting step reads `toJSON(secrets)` or `secrets[<computed>]`
-- **THEN** the guard SHALL fail naming that step or scope, because those secrets mint the same bypass-capable token
-
 #### Scenario: Push still authenticates
 
 - **WHEN** a push to `main` makes the regenerated `CHANGELOG.md` differ from the committed one
 - **THEN** the sync job pushes with the App token through its own extraheader, and it SHALL NOT fail for lack of checkout credentials
+
+### Requirement: CST-1.2 The App's secrets reach only the minting step
+
+In `.github/workflows/changelog-sync.yaml`, job `sync`, the App's secrets SHALL be referenced by
+the minting step alone, never from a workflow- or job-level `env:`, and no other step SHALL read
+secrets through `toJSON(secrets)` or a computed index. (Moved from DUA-6 of
+`dependency-update-automation`.)
+
+#### Scenario: App secrets used outside the minting step
+
+- **WHEN** any step other than the `create-github-app-token` step, or a workflow- or job-level `env:`, references one of the secrets that step mints from, or a non-minting step reads `toJSON(secrets)` or `secrets[<computed>]`
+- **THEN** the guard SHALL fail naming that step or scope, because those secrets mint the same bypass-capable token
 
 ### Requirement: CST-2 The credential checks are proven to fail
 
