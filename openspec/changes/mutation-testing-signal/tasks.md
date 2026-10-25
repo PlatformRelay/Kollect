@@ -229,12 +229,12 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 3. Land
 
-- [ ] 3.1 Merge with the post-merge rows open; archive in a follow-up evidence PR once they pass.
+- [x] 3.1 Merge with the post-merge rows open; archive in a follow-up evidence PR once they pass.
   Owner: after the first green scheduled run, set the repository variable
   `MUTATION_FORCE_FAILURE=true` for one night (the reporter ignores `workflow_dispatch`,
   `ci-failure-report.yaml:34`, so only a scheduled run proves it), confirm the red run and its
   `CI failure: Mutation testing` issue, unset it, and confirm the next scheduled run is green and
-  the issue closes.
+  the issue closes. — closed 2026-10-25, evidence: evidence/post-merge.md
 
 ## 4. Stage-B fixes
 
