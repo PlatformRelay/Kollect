@@ -265,18 +265,18 @@ Test rules for every group:
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| SDC-1 | `TestSetSinkExportDebounced` (15m, 0s); envtest "reports debounced sinks as synced" (both kinds) | `True/Debounced`, stable message | not-run | evidence/G1.md |
-| SDC-2 | `TestAggregateInventorySync`; `requested_at_annotation_test.go` message rows; envtests "reports debounced sinks as synced" (both kinds), "reports one exported and one debounced sink as synced" | `True/Exported` "N/N sink(s) up to date"; no `PartiallySynced`; no "to 0 sink(s)" | not-run | evidence/G1.md |
-| SDC-3 | envtest "keeps Synced=False when a debounced sink sits next to a failed one"; *control* EC-P1-02 spec | aggregate `False`; failed sink `False`; `Ready=False` | not-run | evidence/G1.md |
-| SDC-3 | envtest "marks the only failing sink as not synced" (both kinds) | per-sink `False/ExportFailed`, T1/C1 kept | not-run | evidence/G2.md |
-| SDC-3, SDC-5 | envtest "moves lastTransitionTime only on a status change" | moves at failure and recovery only | not-run | evidence/G2.md |
-| SDC-4 | `TestPerSinkCoalesceTracker_identity`, `_forget`; `TestFailSinkExport` and its `rg` check; `TestKollectInventoryReconciler_previewAllSinksDebounced_unresolvedSink`; envtests "re-exports after a failed export when the payload returns" (both kinds), "re-exports to a recreated inventory" (both kinds), "re-exports after a sink spec change", "re-exports to a recreated sink" | export in the recovering or changed pass; preview not debounced | not-run | evidence/G3.md |
-| SDC-4 | *controls* envtests "exports a changed payload inside the interval", "exports on the first pass of a new reconciler" | exported, never `Debounced` | not-run | evidence/G3.md |
-| SDC-5 | `TestCarryOverSinkExport`; envtests "keeps the per-sink export record across a debounced pass" (both kinds), "keeps the last successful export record across a partly failed pass" | T1, C1 and `lastTransitionTime` kept | not-run | evidence/G2.md |
-| SDC-5 | envtests "writes no status on a repeated debounced reconcile" (both kinds; namespaced with a database and a snapshot sink), "export pass and debounce pass give the same aggregate" | `resourceVersion` unchanged, no Event; identical aggregate | not-run | evidence/G2.md |
-| SDC-5 | `TestKollectInventory_StatusWriteFailureAfterExport_ReExports`, `TestKollectClusterInventory_StatusWriteFailureAfterExport_ReExports` (each with a control case); mutations B1 M1-M5, M0 | next pass exports after a failed status write; control debounces | not-run | reviews/B-branch/round-1/verification.md |
-| SDC-6 | `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | `<family>/<name>` entries; `True/Debounced` → `debounced` with its own time; nil time → empty | not-run | evidence/G1.md |
-| SDC-1–6 | mutations G1 M1-M3, G2 M1-M3, G3 M1-M5, each group with M0 | each target test fails; M0 survives | not-run | evidence/G1.md, G2.md, G3.md |
-| SDC-1–6 | `go test -race -count=3` on the changed packages | pass, N=3 | not-run | evidence/G1.md, G2.md, G3.md |
-| SDC-7 | named edits; per-line `rg` doc check; `task lint:markdown`; `hack/test/docs_*` guards | edits quoted; only the two notes match (FR-EXP-9 reworded in B1.2); `0 issues`; guards pass | not-run | evidence/G4.md |
-| all | independent review of the spec set and the branch | recorded verdicts | not-run | `reviews/R-spec-set/`, `reviews/B-branch/` |
+| SDC-1 | `TestSetSinkExportDebounced` (15m, 0s); envtest "reports debounced sinks as synced" (both kinds) | `True/Debounced`, stable message | pass | evidence/G1.md |
+| SDC-2 | `TestAggregateInventorySync`; `requested_at_annotation_test.go` message rows; envtests "reports debounced sinks as synced" (both kinds), "reports one exported and one debounced sink as synced" | `True/Exported` "N/N sink(s) up to date"; no `PartiallySynced`; no "to 0 sink(s)" | pass | evidence/G1.md |
+| SDC-3 | envtest "keeps Synced=False when a debounced sink sits next to a failed one"; *control* EC-P1-02 spec | aggregate `False`; failed sink `False`; `Ready=False` | pass | evidence/G1.md |
+| SDC-3 | envtest "marks the only failing sink as not synced" (both kinds) | per-sink `False/ExportFailed`, T1/C1 kept | pass | evidence/G2.md |
+| SDC-3, SDC-5 | envtest "moves lastTransitionTime only on a status change" | moves at failure and recovery only | pass | evidence/G2.md |
+| SDC-4 | `TestPerSinkCoalesceTracker_identity`, `_forget`; `TestFailSinkExport` and its `rg` check; `TestKollectInventoryReconciler_previewAllSinksDebounced_unresolvedSink`; envtests "re-exports after a failed export when the payload returns" (both kinds), "re-exports to a recreated inventory" (both kinds), "re-exports after a sink spec change", "re-exports to a recreated sink" | export in the recovering or changed pass; preview not debounced | pass | evidence/G3.md |
+| SDC-4 | *controls* envtests "exports a changed payload inside the interval", "exports on the first pass of a new reconciler" | exported, never `Debounced` | pass | evidence/G3.md |
+| SDC-5 | `TestCarryOverSinkExport`; envtests "keeps the per-sink export record across a debounced pass" (both kinds), "keeps the last successful export record across a partly failed pass" | T1, C1 and `lastTransitionTime` kept | pass | evidence/G2.md |
+| SDC-5 | envtests "writes no status on a repeated debounced reconcile" (both kinds; namespaced with a database and a snapshot sink), "export pass and debounce pass give the same aggregate" | `resourceVersion` unchanged, no Event; identical aggregate | pass | evidence/G2.md |
+| SDC-5 | `TestKollectInventory_StatusWriteFailureAfterExport_ReExports`, `TestKollectClusterInventory_StatusWriteFailureAfterExport_ReExports` (each with a control case); mutations B1 M1-M5, M0 | next pass exports after a failed status write; control debounces | pass | reviews/B-branch/round-1/verification.md |
+| SDC-6 | `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | `<family>/<name>` entries; `True/Debounced` → `debounced` with its own time; nil time → empty | pass | evidence/G1.md |
+| SDC-1–6 | mutations G1 M1-M3, G2 M1-M3, G3 M1-M5, each group with M0 | each target test fails; M0 survives | pass | evidence/G1.md, G2.md, G3.md |
+| SDC-1–6 | `go test -race -count=3` on the changed packages | pass, N=3 | pass | evidence/G1.md, G2.md, G3.md |
+| SDC-7 | named edits; per-line `rg` doc check; `task lint:markdown`; `hack/test/docs_*` guards | edits quoted; only the two notes match (FR-EXP-9 reworded in B1.2); `0 issues`; guards pass | pass | evidence/G4.md |
+| all | independent review of the spec set and the branch | recorded verdicts | pass | `reviews/R-spec-set/`, `reviews/B-branch/` |

@@ -132,7 +132,9 @@ write fails (a conflict, or any other error), `updateStatus` calls `forgetUnpers
 which drops the baseline of every sink exported in the pass (`perSinkExportOutcome.markExported`
 lists them). Without it a `0s` binding would debounce, for as long as its payload stays the same,
 against an export whose time and checksum the persisted entry never recorded (branch review
-round 1). The cost is one repeated export of the same payload after a failed status write.
+round 1). The cost is one repeated export of the same payload per failed status write; a
+conflict loop repeats it on each retry (conflict requeue), and event sinks receive the payload
+again each time (upgrade guide entry).
 
 ### Steady state without writes (SDC-5)
 
