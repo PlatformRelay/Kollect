@@ -23,7 +23,10 @@ correction goes straight to a PR. Open a change when observable behaviour change
    source or a probe.
 2. **Specify.** Write requirements with stable IDs, plus scenarios for both what must happen and
    what must not happen. Write the verification table in `tasks.md` before touching production
-   code.
+   code. Keep each requirement's text (the part above its first scenario) to 500 characters or
+   fewer; OpenSpec 1.14.3 and later warn on a longer one, and `--strict` fails on warnings. A
+   requirement split into parts keeps its ID and title on the first part and numbers the rest
+   `<ID>.2`, `<ID>.3`, and a citation of `<ID>` covers all its parts.
 3. **Red.** Write the behavioural test and watch it fail on the assertion you care about. A
    compile error, a missing Docker daemon or a skipped test is not a red.
 4. **Green.** Make the smallest coherent change and run the relevant gates.
