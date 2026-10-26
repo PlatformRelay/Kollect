@@ -1,33 +1,48 @@
-# Renovate uses RENOVATE_TOKEN when configured so its pull requests trigger CI.
-# Without that secret, github.token is a safe fallback, but GitHub will not start
-# workflows for pull requests created by the repository token.
+# Self-hosted Renovate (openspec change dependency-update-automation, DUA-1 to DUA-3, DUA-7,
+# DUA-8). It runs hourly, one run at a time, under the maintainer's RENOVATE_TOKEN secret only:
+# a pull request opened by the workflow's own token never starts CI, so a missing secret fails
+# the job before Renovate starts instead of falling back. The job token is read-only; Renovate
+# writes with RENOVATE_TOKEN. The Renovate image is pinned by version and digest and bumped by
+# its own weekly, never auto-merged PR (renovate.json). hack/test/renovate_policy_test.sh guards
+# this file; hack/ci/renovate-config-validate.sh validates the configs from the same image.
 name: Renovate
 
 on:
   schedule:
-    - cron: "0 4 * * 1"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
 
 jobs:
   renovate:
     name: renovate
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     env:
       RENOVATE_REPOSITORIES: ${{ github.repository }}
-      # Manual runs ignore the repository schedule and emit debug logs.
-      RENOVATE_FORCE: ${{ github.event_name == 'workflow_dispatch' && '{"schedule":null}' || '' }}
+      # Manual runs emit debug logs.
       LOG_LEVEL: ${{ github.event_name == 'workflow_dispatch' && 'debug' || '' }}
     steps:
+      - name: Require RENOVATE_TOKEN
+        env:
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+        run: |
+          if [ -z "${RENOVATE_TOKEN}" ]; then
+            echo "::error::RENOVATE_TOKEN is not set: add the repository secret, Renovate does not run without it" >&2
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: renovatebot/github-action@e26264186543fd355dc60776e21f7fbb67ce6f85 # v46.3.2
+      - uses: renovatebot/github-action@2804199d260ad00c1fae0e9e842888369391c776 # v46.3.10
         with:
           configurationFile: .github/renovate-config.json
-          token: ${{ secrets.RENOVATE_TOKEN != '' && secrets.RENOVATE_TOKEN || github.token }}
+          renovate-image: ghcr.io/renovatebot/renovate:44.179.1@sha256:f30ad41a40ab226734469eb61517d527a198a48b173cf6e0c3ee180927479293
+          token: ${{ secrets.RENOVATE_TOKEN }}

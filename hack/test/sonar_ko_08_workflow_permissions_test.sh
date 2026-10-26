@@ -11,9 +11,10 @@
 #   (b) the `sync` job declares its own `permissions: contents: write`, scoping
 #       the write grant to the only writer.
 #
-# (release.yaml / renovate.yaml keep their job-level contents: write — GitHub
-# release+tag creation and update-branch pushes legitimately require it; those
-# are accepted residuals and intentionally out of scope here.)
+# (release.yaml keeps its job-level contents: write — GitHub release and tag
+# creation legitimately require it; an accepted residual and intentionally out
+# of scope here. renovate.yaml grants only contents: read and writes with its
+# own RENOVATE_TOKEN; hack/test/renovate_policy_test.sh T3 guards that.)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
