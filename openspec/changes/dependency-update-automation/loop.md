@@ -1,7 +1,7 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
-Next: L task loop, 1.2
+Next: L task loop, 2.1
 Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
@@ -43,12 +43,16 @@ Holistic run at B: not run yet.
 | L G1 | T2 judged a body with no `shell:` under pipefail; the runner uses `bash -e` | WARNING | A+B | fix | guard `run_body`, mutant `m_t2_pipe_masks` | no |
 | L G1 | T6 accepted any `configurationFile`, bypassing the global config T13 will check | WARNING | B | fix (after the last round) | T6, mutant `m_t6_other_config`; stage B to re-check | no |
 | L G1 | reviewer A round-2 BLOCK rests on its inability to execute, names no defect | process | A | record | `evidence/1.1.md` *Independent review*; clause-removal proof recorded instead | no |
+| L G2 | T16 took the expected image from any argv position (another image with it as an argument passed) | WARNING | A | fix | T16 image position parsed; decoy `m_t16_image_as_arg` | no |
+| L G2 | self-test cases ran with `set -e` off (subshell left of `&&`); T17 secondary patterns without mutants | NOTE | B | fix | runner marks success inside the case; five T17 mutants | no |
+| L G2 | T16 never runs against the tree's own `renovate.yaml`; an unlisted value option can hide the image; T17 lexical | NOTE | B | defer | `evidence/1.2.md` *Harness gaps*; the real validator run in `lint` (2.3) and 3.1's review | no |
 | L G0 | proposal assumptions "one automerge per run" (job restarts once) and "from v46.3.10 on" (present from v46.3.4) are imprecise, not false | NIT | author, A agrees | record | `evidence/0.4.md` *Assumption check* | no |
 
 ## Tasks
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
+| G2 (1.2) | CLOSED-WITH-GAPS | reviewer A + reviewer B, 2 rounds; round 1 A REQUEST_CHANGES (T16 took the image from any argv position: fixed), B APPROVE (P2s fixed or deferred); round 2 A APPROVE, B APPROVE; paid leg yes | T14 orders the image rule only against `github actions`; T15 sees a literal `matchDepNames` only; T17 is lexical; T16 runs on the fixture workflow and lists value-taking docker options (`evidence/1.2.md` *Harness gaps*); round-2 message wording unreviewed |
 | G1 (1.1) | CLOSED-WITH-GAPS | reviewer A + reviewer B, 2 rounds; round 1 A REQUEST_CHANGES, B CONCERNS (T2 judged an unspecified shell with pipefail: fixed); round 2 A BLOCK (no defect: its sandbox could not execute; its P2 fixed), B CONCERNS (fixed or recorded); paid leg yes | round-2 fixes unreviewed (stage B); T9 does not see a third-party merge action or a line-continued merge command (`evidence/1.1.md` *Harness gaps*) |
 | G0 (0.4, 0.5) | CLOSED | reviewer A, 1 round, REQUEST_CHANGES (wording/evidence only, fixed); paid leg no | none; decision for B: DUA-9 scenario names `renovate/helm`, a major Helm release lands in `renovate/major-helm` (`evidence/0.4.md` *Observations*). Pin for 2.1: `ghcr.io/renovatebot/renovate:44.179.1@sha256:f30ad41a…` (`evidence/0.5.md`) |
 
@@ -58,11 +62,15 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | `hack/test/renovate_policy_test.sh` T1, T2, T3, T4, T5, T6, T7 (plain mode; `lint` red) | DUA-1, DUA-2, DUA-3, DUA-7, DUA-8 | 1.1 | 2.1 |
 | `hack/test/renovate_policy_test.sh` T8 (plain mode; `lint` red) | DUA-5 | 1.1 | 2.3 |
+| `hack/test/renovate_policy_test.sh` T10, T11, T12, T14, T15 (plain mode; `lint` red) | DUA-3, DUA-4, DUA-7, DUA-8, DUA-9 | 1.2 | 2.2 |
+| `hack/test/renovate_policy_test.sh` T16 (plain mode, red on the stub; `lint` red) | DUA-5 | 1.2 | 2.3 |
+| `hack/test/renovate_policy_test.sh` T17 (plain mode; `lint` red) | DUA-10 | 1.2 | 3.1 |
 
 ## Test changes
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `hack/test/renovate_policy_test.sh` self-test runner (`self_test`, `run_case`) | 1.1 | 1.2 | not wrong, too slow: 148 cases took 136 s sequentially; now parallel copies (16 s), each judged as before, under `set -e`, an early end failing by name (`evidence/1.2.md` *Test changes*); no 1.1 clause changed |
 
 ## PRs
 
@@ -92,4 +100,8 @@ Carried over from earlier changes:
 - An error-swallowing read helper is safe only for single values judged as violations when empty; a read whose rows feed a loop must red on a yq error, or no rows means a pass (1.1)
 - Reviewer A's read-only sandbox also refuses `/tmp`, so it cannot mutate a scratch copy: record the clause-removal proof in the evidence before the brief (1.1)
 - A self-test for a guard whose clauses are red on today's tree runs on a known-good fixture of the guarded file, or every mutant reds on an already-red clause (1.1)
+- A guard that finds an expected value "anywhere in the argv" passes when it sits in another slot (the image as an argument of another image): judge argv by position, with a decoy that puts the right value in the wrong slot (1.2)
+- A subshell on the left of `&&` runs with `set -e` off inside it: a parallel case runner marks success from inside the subshell, never `(…) && touch ok &` (1.2)
+- A yq TSV row with an empty field collapses under `IFS=$'\t'` (tab is IFS whitespace): prefix each field with a marker such as `=` and strip it after the read (1.2)
+- A guard over a JSON config gets a fixture checked by the pinned validator in both modes, so the known-good tree is valid for the real tool, not only for the guard (1.2)
 - A trace-level Renovate log is too large for one Node string and holds non-JSON lines: pre-filter with `jq -R 'fromjson? // empty'` (G0)

@@ -24,7 +24,7 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
   - **T9 no merge workflow:** when any parsed `run:` body or `with.script` under `.github/workflows/` contains `pulls.merge`, or `gh pr merge`, a `pulls/<number>/merge` API path or `enablePullRequestAutoMerge`, or any workflow has a `pull_request_target` trigger, then fail. Today's comment in `ci.yaml` that names `gh pr merge` must not count (DUA-8)
 
   Record the red per case on today's tree: T1 to T8 red, T9 green (correct today). `lint` stays red until section 2. Evidence `evidence/1.1.md` — closed 2026-10-26, evidence: evidence/1.1.md
-- [ ] 1.2 Add the config, validator and docs clauses to the guard, and the stub `hack/ci/renovate-config-validate.sh [root]` (body: `echo "not implemented" >&2; exit 2`). Cases:
+- [x] 1.2 Add the config, validator and docs clauses to the guard, and the stub `hack/ci/renovate-config-validate.sh [root]` (body: `echo "not implemented" >&2; exit 2`). Cases:
   - **T10 dashboard and presets:** when the top-level `extends` is not exactly `["config:recommended"]`, any other object at any depth in either file has an `extends` key (a preset nested in a `packageRules` entry, such as `:automergeAll`, enables automerge without a literal `automerge: true`), or `dependencyDashboard` is false, then fail. The exact list also refuses `:disableDependencyDashboard` and remote presets (DUA-4, DUA-7)
   - **T11 automerge scope:** over both `renovate.json` and `.github/renovate-config.json`, when the number of objects at any depth that have an `automerge` key with value `true` is not exactly 1, that object is not a `packageRules` entry of `renovate.json`, or its keys are not exactly `automerge`, `matchManagers` `["devcontainer","dockerfile"]` (sorted), `matchUpdateTypes` `["digest"]`, `rebaseWhen` `behind-base-branch` and optional `description`, then fail. Covers top-level, `patch`, `minor`, `digest`, `vulnerabilityAlerts`, `lockFileMaintenance` and per-manager blocks (DUA-7)
   - **T12 merge settings:** when `renovate.json`'s top level does not set `platformAutomerge` `false`, `automergeType` `pr`, `automergeStrategy` `rebase` and `rebaseWhen` `conflicted`, or any object at any depth in either file other than these and the automerge rule's `rebaseWhen` sets `platformAutomerge`, `automergeStrategy`, `automergeType` or `rebaseWhen`, or has an `ignoreTests` key, then fail (DUA-8)
@@ -34,7 +34,7 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
   - **T16 validator behaviour:** with a fake `docker` on `PATH` that records each argv and exits with a set status, the script fails without calling docker when `renovate-image` has no digest; with a digest it calls `docker run --rm` with that exact image twice, once validating `renovate.json` with `--strict --no-global` and once `.github/renovate-config.json` with `--strict` and without `--no-global` (judged on the image, the validator command and the flags; a file argument may carry the mount prefix 0.5 settles; the mount, workdir and entrypoint follow 0.5's result); it exits non-zero when either call exits 1 (DUA-5)
   - **T17 docs:** when the Renovate section of `docs/development/tooling-setup.md` does not name the hourly schedule, `RENOVATE_TOKEN`, the dependency dashboard, the digest-only auto-merge scope, `gh workflow disable`, `gh pr update-branch --rebase`, `hack/ci/renovate-config-validate.sh`, the unused hosted App and the release review, then fail (DUA-10)
 
-  Record the result per case on today's tree: T10, T11, T12, T14, T15 and T17 red, T16 red on the stub, T13 green (today's global config already has exactly those keys; its mutants prove it can fail). Evidence `evidence/1.2.md`
+  Record the result per case on today's tree: T10, T11, T12, T14, T15 and T17 red, T16 red on the stub, T13 green (today's global config already has exactly those keys; its mutants prove it can fail). Evidence `evidence/1.2.md` — closed 2026-10-26, evidence: evidence/1.2.md
 
 ## 2. Implementation
 
@@ -60,16 +60,16 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 | DUA-1 | dispatched run on `main` after merge | run succeeds under `RENOVATE_TOKEN` | post-merge | follow-up evidence PR |
 | DUA-2 | guard T4, T5 and mutants | as above | partial: mutants pass; tree red until 2.1 | `evidence/1.1.md` |
 | DUA-2 | scheduled runs on `main` after merge, on a day other than Monday | several runs that day, `event=schedule` | post-merge | follow-up evidence PR |
-| DUA-3 | guard T6, T7, T14 and mutants; 0.4 (a), 2.4: image branch alone, `automerge` false, outside its window not created | as stated | partial: 0.4 (a) pass; pin 44.179.1 chosen; T6, T7 mutants pass, tree red until 2.1 | `evidence/0.4.md` (a), `evidence/0.5.md`, `evidence/1.1.md` |
+| DUA-3 | guard T6, T7, T14 and mutants; 0.4 (a), 2.4: image branch alone, `automerge` false, outside its window not created | as stated | partial: 0.4 (a) pass; pin 44.179.1 chosen; T6, T7 mutants pass, tree red until 2.1; T14 mutants pass, tree red until 2.2 | `evidence/0.4.md` (a), `evidence/0.5.md`, `evidence/1.1.md`, `evidence/1.2.md` |
 | DUA-3 | the first run on `main` pulls the digest reference | run log names `@sha256:` | post-merge | follow-up evidence PR |
-| DUA-4 | guard T10 and mutant | as above | not-run | |
+| DUA-4 | guard T10 and mutant | as above | partial: T10 mutants pass; tree red until 2.2 | `evidence/1.2.md` |
 | DUA-4 | dashboard issue after the first run on `main` | open issue by the token's user | post-merge | follow-up evidence PR |
-| DUA-5 | guard T8, T16 and mutants; real validator run on the final config | as above; exit 0 | partial: validator argv settled, today's files exit 0; T8 mutants pass, tree red until 2.3 | `evidence/0.5.md`, `evidence/1.1.md` |
+| DUA-5 | guard T8, T16 and mutants; real validator run on the final config | as above; exit 0 | partial: validator argv settled, today's files exit 0; T8 mutants pass, tree red until 2.3; T16 mutants pass, red on the stub until 2.3 | `evidence/0.5.md`, `evidence/1.1.md`, `evidence/1.2.md` |
 | DUA-5 | `lint` on the PR head runs the validator | step green | not-run | |
-| DUA-7 | guard T10, T11, T13 and mutants; 0.4 (c), 2.4: only digest-only dockerfile/devcontainer branches carry `automerge` | as stated | partial: 0.4 (c) pass | `evidence/0.4.md` (c) |
+| DUA-7 | guard T10, T11, T13 and mutants; 0.4 (c), 2.4: only digest-only dockerfile/devcontainer branches carry `automerge` | as stated | partial: 0.4 (c) pass; T10, T11, T13 mutants pass, T13 green on tree, T10 and T11 red until 2.2 | `evidence/0.4.md` (c), `evidence/1.2.md` |
 | DUA-7 | first digest-only PR after merge is merged by the bot after all checks green | merged, rebase | post-merge | follow-up evidence PR (needs an upstream digest) |
-| DUA-8 | guard T7, T9, T12, T13 and mutants; 0.4 (e) source evidence for no checks, red, pending and behind | as stated | partial: 0.4 (e) pass; T7, T9 mutants pass, T9 green on tree | `evidence/0.4.md` (e), `evidence/1.1.md` |
-| DUA-9 | guard T15 and mutant; 0.4 (b), 2.4: `release.yaml`'s Helm input in the same branch as every `HELM_VERSION` (`renovate/helm`, or `renovate/major-helm` for a major) | as stated | partial: 0.4 (b) pass | `evidence/0.4.md` (b) |
-| DUA-10 | guard T17 and mutant; docs read against the config | as stated | not-run | |
-| all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | partial: green after 1.1 | `evidence/1.1.md` |
+| DUA-8 | guard T7, T9, T12, T13 and mutants; 0.4 (e) source evidence for no checks, red, pending and behind | as stated | partial: 0.4 (e) pass; T7, T9 mutants pass, T9 green on tree; T12, T13 mutants pass, T13 green on tree, T12 red until 2.2 | `evidence/0.4.md` (e), `evidence/1.1.md`, `evidence/1.2.md` |
+| DUA-9 | guard T15 and mutant; 0.4 (b), 2.4: `release.yaml`'s Helm input in the same branch as every `HELM_VERSION` (`renovate/helm`, or `renovate/major-helm` for a major) | as stated | partial: 0.4 (b) pass; T15 mutants pass, tree red until 2.2 | `evidence/0.4.md` (b), `evidence/1.2.md` |
+| DUA-10 | guard T17 and mutant; docs read against the config | as stated | partial: T17 mutants pass; tree red until 3.1 | `evidence/1.2.md` |
+| all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | partial: green after 1.1 and 1.2 | `evidence/1.1.md`, `evidence/1.2.md` |
 | all | independent review; CI on the PR head | APPROVE, green | not-run | |
