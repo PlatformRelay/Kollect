@@ -816,7 +816,7 @@ t16_judge_call() {
     return 0
   fi
   if [[ "${a[img]}" != "${T16_IMAGE}" ]]; then
-    echo "!runs the image '${a[img]}', not the renovate-image of renovate.yaml (${T16_IMAGE}): $(paste -sd' ' "$1")"
+    echo "!runs the image '${a[img]}', not the renovate-image of renovate.yaml (${T16_IMAGE}), or an option outside T16_VALUE_OPTS took a value: $(paste -sd' ' "$1")"
     return 0
   fi
   if ((rm == 0)); then
