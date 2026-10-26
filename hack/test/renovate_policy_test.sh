@@ -787,27 +787,38 @@ t16_run() { # $1 case dir, $2 image, $3 statuses
 
 # Judges one recorded `docker run` call: prints "repo <flags>" or "global <flags>" (flags sorted,
 # space-separated), or "!<why>" when the call does not run the validator from T16_IMAGE.
+# `docker run` options that take a separate value: the image is the first argument after `run`
+# that is neither an option nor such a value. An option outside this list that takes a value
+# makes its value read as the image, which reds (fails closed).
+T16_VALUE_OPTS=" -v --volume -w --workdir -e --env --env-file --network --net --entrypoint -u --user --name --mount --platform --pull --label -l --tmpfs --security-opt --cap-add --cap-drop --add-host --dns --hostname -h --ulimit --log-driver --log-opt -m --memory --cpus --pids-limit --stop-timeout "
+
 t16_judge_call() {
   local -a a v flags=() files=()
   local i img=-1 rm=0 ep="" f kind
   mapfile -t a <"$1"
   for ((i = 1; i < ${#a[@]}; i++)); do
-    if [[ "${a[i]}" == "${T16_IMAGE}" ]]; then
-      img="${i}"
-      break
-    fi
-  done
-  if ((img < 0)); then
-    echo "!does not name the renovate-image of renovate.yaml (${T16_IMAGE}) as its image: $(paste -sd' ' "$1")"
-    return 0
-  fi
-  for ((i = 1; i < img; i++)); do
     case "${a[i]}" in
       --rm) rm=1 ;;
       --entrypoint) ep="${a[i + 1]:-}" ;;
       --entrypoint=*) ep="${a[i]#--entrypoint=}" ;;
     esac
+    if [[ "${a[i]}" == -* ]]; then
+      if [[ "${a[i]}" != *=* && "${T16_VALUE_OPTS}" == *" ${a[i]} "* ]]; then
+        i=$((i + 1))
+      fi
+      continue
+    fi
+    img="${i}"
+    break
   done
+  if ((img < 0)); then
+    echo "!names no image: $(paste -sd' ' "$1")"
+    return 0
+  fi
+  if [[ "${a[img]}" != "${T16_IMAGE}" ]]; then
+    echo "!runs the image '${a[img]}', not the renovate-image of renovate.yaml (${T16_IMAGE}): $(paste -sd' ' "$1")"
+    return 0
+  fi
   if ((rm == 0)); then
     echo "!has no --rm: $(paste -sd' ' "$1")"
     return 0
@@ -930,10 +941,10 @@ t17_docs() {
     bad T17 "${DOCS_REL} is missing -- the maintainer docs do not describe the bot (DUA-10)"
     return 0
   fi
-  # The section: from the first level-2 heading naming Renovate to the next level-1/2 heading,
-  # headings inside fenced code blocks ignored.
+  # The section: from the first level-1 or level-2 heading naming Renovate to the next level-1 or
+  # level-2 heading, headings inside fenced code blocks ignored.
   if ! section="$(awk '/^```/ { f = !f } !f && /^##? / { if (s) exit; if ($0 ~ /Renovate/) { s = 1; found = 1; next } } s { print } END { exit !found }' "${doc}")"; then
-    bad T17 "${DOCS_REL} has no '## ... Renovate ...' section (DUA-10)"
+    bad T17 "${DOCS_REL} has no level-1 or level-2 heading naming Renovate (DUA-10)"
     return 0
   fi
   for item in "${T17_ITEMS[@]}"; do
@@ -1390,6 +1401,8 @@ m_t10_dashboard_false() { jmut "${RJF}" '.dependencyDashboard = false' '.depende
 m_t10_global_extends() { jmut "${GCF}" '.extends = [":automergeAll"]' 'has("extends")'; }
 m_t11_top() { jmut "${RJF}" '.automerge = true' '.automerge == true'; }
 m_t11_patch() { jmut "${RJF}" '.patch = {"automerge": true}' '.patch.automerge == true'; }
+m_t11_minor() { jmut "${RJF}" '.minor = {"automerge": true}' '.minor.automerge == true'; }
+m_t11_digest_block() { jmut "${RJF}" '.digest = {"automerge": true}' '.digest.automerge == true'; }
 m_t11_vulnerability() { jmut "${RJF}" '.vulnerabilityAlerts = {"automerge": true}' '.vulnerabilityAlerts.automerge == true'; }
 m_t11_lockfile() { jmut "${RJF}" '.lockFileMaintenance = {"enabled": true, "automerge": true}' '.lockFileMaintenance.automerge == true'; }
 m_t11_manager_block() { jmut "${RJF}" '.dockerfile = {"automerge": true}' '.dockerfile.automerge == true'; }
@@ -1438,6 +1451,8 @@ m_t16_global_no_global() { smut "${VSF}" 's/validate --strict \.github/validate 
 m_t16_repo_no_strict() { smut "${VSF}" 's/validate --strict --no-global renovate/validate --no-global renovate/' 'validate --no-global renovate\.json'; }
 m_t16_no_rm() { smut "${VSF}" 's/docker run --rm /docker run /' 'docker run --network'; }
 m_t16_hardcoded_image() { smut "${VSF}" 's|"\${image}" "\$@"|ghcr.io/renovatebot/renovate:latest "$@"|' 'renovate:latest "\$@"'; }
+# The workflow's image passed as an argument to another image (a decoy for T16's image position).
+m_t16_image_as_arg() { smut "${VSF}" 's|--entrypoint renovate-config-validator "\${image}"|--entrypoint renovate-config-validator alpine:3 "${image}"|' 'alpine:3 "\$\{image\}"'; }
 m_t16_wrong_command() { smut "${VSF}" 's/--entrypoint renovate-config-validator/--entrypoint renovate/' '--entrypoint renovate "'; }
 m_t16_ignore_rc() { smut "${VSF}" 's/|| rc=1/|| true/' 'renovate\.json \|\| true # repo-call'; }
 m_t16_ignore_second_rc() { smut "${VSF}" '/# global-call$/s/|| rc=1/|| true/' 'config\.json \|\| true # global-call'; }
@@ -1453,6 +1468,12 @@ m_t17_rebase() { dmut 'gh pr update-branch'; }
 m_t17_validate() { dmut 'renovate-config-validate\.sh'; }
 m_t17_app() { dmut 'hosted Renovate App'; }
 m_t17_release() { dmut 'since the last tag'; }
+# Each secondary pattern of an item, removed alone from its line.
+m_t17_scope_digest() { smut "${DCF}" 's/Only digest-only updates of/Only updates of/' '^Only updates of'; }
+m_t17_scope_dockerfile() { smut "${DCF}" 's/of Dockerfile and devcontainer images/of devcontainer images/' 'of devcontainer images'; }
+m_t17_scope_devcontainer() { smut "${DCF}" 's/of Dockerfile and devcontainer images/of Dockerfile images/' 'of Dockerfile images'; }
+m_t17_app_used() { smut "${DCF}" 's/hosted Renovate App is unused/hosted Renovate App is installed/' 'App is installed'; }
+m_t17_release_word() { smut "${DCF}" 's/Before approving a release, the maintainer/Before approving, the maintainer/' '^Before approving, the'; }
 # The right text in the wrong section: it moves below the next heading.
 m_t17_moved() {
   local line
@@ -1577,6 +1598,8 @@ MUTANTS=(
   "T10+T13|m_t10_global_extends|'\.github/renovate-config\.json:/' has an extends key"
   "T11|m_t11_top|2 objects set automerge: true \(renovate\.json:/, "
   "T11|m_t11_patch|2 objects set automerge: true .*renovate\.json:/patch"
+  "T11|m_t11_minor|2 objects set automerge: true .*renovate\.json:/minor"
+  "T11|m_t11_digest_block|2 objects set automerge: true .*renovate\.json:/digest"
   "T11|m_t11_vulnerability|2 objects set automerge: true .*renovate\.json:/vulnerabilityAlerts"
   "T11|m_t11_lockfile|2 objects set automerge: true .*renovate\.json:/lockFileMaintenance"
   "T11|m_t11_manager_block|2 objects set automerge: true .*renovate\.json:/dockerfile"
@@ -1624,13 +1647,14 @@ MUTANTS=(
   "T16|m_t16_global_no_global|no docker run call validates \.github/renovate-config\.json"
   "T16|m_t16_repo_no_strict|no docker run call validates renovate\.json"
   "T16|m_t16_no_rm|has no --rm"
-  "T16|m_t16_hardcoded_image|does not name the renovate-image"
+  "T16|m_t16_hardcoded_image|runs the image 'ghcr\.io/renovatebot/renovate:latest', not the renovate-image"
+  "T16|m_t16_image_as_arg|runs the image 'alpine:3', not the renovate-image"
   "T16|m_t16_wrong_command|runs 'renovate', not renovate-config-validator"
   "T16|m_t16_ignore_rc|exits 0 when docker run call 1 of 2 exits 1"
   "T16|m_t16_ignore_second_rc|exits 0 when docker run call 2 of 2 exits 1"
   "T16|m_t16_always_fails|exits 1 when both validator calls pass"
   "T17|m_t17_missing|tooling-setup\.md is missing"
-  "T17|m_t17_no_section|has no '## \.\.\. Renovate"
+  "T17|m_t17_no_section|has no level-1 or level-2 heading naming Renovate"
   "T17|m_t17_hourly|does not name the hourly schedule"
   "T17|m_t17_token|does not name RENOVATE_TOKEN"
   "T17|m_t17_dashboard|does not name the dependency dashboard"
@@ -1640,6 +1664,11 @@ MUTANTS=(
   "T17|m_t17_validate|does not name hack/ci/renovate-config-validate\.sh"
   "T17|m_t17_app|does not name the unused hosted App"
   "T17|m_t17_release|does not name the release review"
+  "T17|m_t17_scope_digest|does not name the digest-only auto-merge scope \(/digest/\)"
+  "T17|m_t17_scope_dockerfile|does not name the digest-only auto-merge scope \(/dockerfile/\)"
+  "T17|m_t17_scope_devcontainer|does not name the digest-only auto-merge scope \(/devcontainer/\)"
+  "T17|m_t17_app_used|does not name the unused hosted App \(/unused\|not used\|not installed/\)"
+  "T17|m_t17_release_word|does not name the release review \(/release/\)"
   "T17|m_t17_moved|does not name gh workflow disable"
 )
 CONTROLS=(c_noop c_bot_bump c_comment_decoy c_hour_step c_shell_bash
@@ -1649,7 +1678,9 @@ CONTROLS=(c_noop c_bot_bump c_comment_decoy c_hour_step c_shell_bash
 BASE="" # the known-good fixture every case copies
 
 # One control or mutant in its own copy of BASE. It runs in a background subshell, so a die ends
-# only this case; its output goes to a result file the parent prints in table order.
+# only this case; its output goes to a result file the parent prints in table order. The subshell
+# is never the left side of && or ||, so set -e holds inside it: any failing step ends the case
+# before its last line, which marks it passed.
 run_case() { # $1 copy dir, $2 control|mutant, $3 control function or mutant row
   local clause fn want lines other allowed out="$1.out"
   trap - EXIT
@@ -1684,6 +1715,7 @@ run_case() { # $1 copy dir, $2 control|mutant, $3 control function or mutant row
     echo "ok - mutant ${fn} reds ${clause} with its own message"
   fi
   rm -rf "${FX:?}" "${out:?}"
+  touch "$1.ok"
 }
 
 self_test() {
@@ -1708,12 +1740,13 @@ self_test() {
     while (($(jobs -rp | wc -l) >= max)); do
       wait -n || true
     done
-    (run_case "${work}/c${i}" "${kinds[i]}" "${args[i]}") >"${work}/r${i}" 2>&1 && touch "${work}/ok${i}" &
+    (run_case "${work}/c${i}" "${kinds[i]}" "${args[i]}") >"${work}/r${i}" 2>&1 &
   done
   wait || true
   for ((i = 0; i < ${#args[@]}; i++)); do
     cat "${work}/r${i}"
-    if [[ ! -f "${work}/ok${i}" ]]; then
+    if [[ ! -f "${work}/c${i}.ok" ]]; then
+      echo "FAIL: self-test: ${kinds[i]} '${args[i]}' did not complete" >&2
       failed=$((failed + 1))
     elif [[ "${kinds[i]}" == "mutant" ]]; then
       nmut=$((nmut + 1))
