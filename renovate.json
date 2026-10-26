@@ -1,9 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended",
-    ":disableDependencyDashboard"
-  ],
+  "extends": ["config:recommended"],
+  "platformAutomerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "rebase",
+  "rebaseWhen": "conflicted",
   "labels": ["dependencies"],
   "postUpdateOptions": ["gomodTidy"],
   "semanticCommits": "disabled",
@@ -148,9 +149,24 @@
       "pinDigests": true
     },
     {
+      "description": "The Renovate image that renovate.yaml runs (its renovate-image input), in a branch of its own, opened or updated only on Mondays (UTC) even on a manual run, and never auto-merged: a new Renovate changes what the bot does, so a human reads it first (DUA-3). After 'github actions', so the github-actions manager's extraction of the input does not land it in that group. hack/test/renovate_policy_test.sh (T14) checks it.",
+      "matchPackageNames": ["ghcr.io/renovatebot/renovate"],
+      "groupName": "renovate image",
+      "schedule": ["* * * * 1"],
+      "updateNotScheduled": false,
+      "automerge": false
+    },
+    {
       "matchManagers": ["dockerfile"],
       "groupName": "docker images",
       "pinDigests": true
+    },
+    {
+      "description": "The only auto-merge (DUA-7): a branch whose every update is a Dockerfile or devcontainer image digest, same tag. Renovate merges it itself (platformAutomerge false) by rebase once every check on its head is green, and rebases it first when it is behind main (DUA-8). A branch that also holds any other update (a tag change, the go directive) is not auto-merged, as branch automerge needs every upgrade's. hack/test/renovate_policy_test.sh (T11, T12) keeps this the one automerge in both config files.",
+      "matchManagers": ["devcontainer", "dockerfile"],
+      "matchUpdateTypes": ["digest"],
+      "automerge": true,
+      "rebaseWhen": "behind-base-branch"
     },
     {
       "description": "Bump the go directive of go.mod. The gomod manager never proposes it by default (docs.renovatebot.com/modules/manager/gomod); without this rule the golang image moves alone and the shipped binary is built by a Go the tests never ran. Scoped to the root go.mod so test fixtures keep their own directive.",
@@ -175,8 +191,8 @@
       "groupName": "pinned build tools"
     },
     {
-      "description": "Keep every Helm pin on one version. The azure/setup-helm input in release.yaml is seen by the github-actions manager while the annotated HELM_VERSION pins are seen by the custom manager, so without this they land in different groups and drift apart -- which is exactly how release.yaml reached v3.21.4 while CI stayed on v3.17.3. Both resolve to depName helm/helm.",
-      "matchDepNames": ["helm/helm"],
+      "description": "Keep every Helm pin on one version. The azure/setup-helm input in release.yaml is seen by the github-actions manager while the annotated HELM_VERSION pins are seen by the custom manager, so without this they land in different groups and drift apart -- which is exactly how release.yaml reached v3.21.4 while CI stayed on v3.17.3. The custom manager's depName is helm/helm, but the setup-helm input's depName is helm with packageName helm/helm, so the rule matches packageName (DUA-9; hack/test/renovate_policy_test.sh T15).",
+      "matchPackageNames": ["helm/helm"],
       "groupName": "helm"
     },
     {
