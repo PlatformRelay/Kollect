@@ -69,7 +69,7 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 | DUA-7 | guard T10, T11, T13 and mutants; 0.4 (c), 2.4: only digest-only dockerfile/devcontainer branches carry `automerge` | as stated | partial: 0.4 (c) pass | `evidence/0.4.md` (c) |
 | DUA-7 | first digest-only PR after merge is merged by the bot after all checks green | merged, rebase | post-merge | follow-up evidence PR (needs an upstream digest) |
 | DUA-8 | guard T7, T9, T12, T13 and mutants; 0.4 (e) source evidence for no checks, red, pending and behind | as stated | partial: 0.4 (e) pass | `evidence/0.4.md` (e) |
-| DUA-9 | guard T15 and mutant; 0.4 (b), 2.4: `release.yaml`'s Helm input in `renovate/helm` | as stated | partial: 0.4 (b) pass | `evidence/0.4.md` (b) |
+| DUA-9 | guard T15 and mutant; 0.4 (b), 2.4: `release.yaml`'s Helm input in the same branch as every `HELM_VERSION` (`renovate/helm`, or `renovate/major-helm` for a major) | as stated | partial: 0.4 (b) pass | `evidence/0.4.md` (b) |
 | DUA-10 | guard T17 and mutant; docs read against the config | as stated | not-run | |
 | all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | not-run | |
 | all | independent review; CI on the PR head | APPROVE, green | not-run | |

@@ -158,7 +158,7 @@ custom-manager pins and the `azure/setup-helm` input in `release.yaml` land in o
 #### Scenario: Helm release
 
 - **WHEN** Renovate finds a new `helm/helm` release
-- **THEN** one branch, `renovate/helm`, updates every Helm pin including `release.yaml`
+- **THEN** one branch (`renovate/helm` for a minor or patch release, `renovate/major-helm` for a major) updates every Helm pin including `release.yaml`
 
 #### Scenario: Rule matches depName only
 

@@ -39,7 +39,7 @@ Holistic run at B: not run yet.
 | R1 | 17 findings (`reviews/R-spec-set/verification.md`): T11 key set, automerge outside packageRules / presets / global config / env, dispatch `RENOVATE_FORCE` | 3 CRITICAL | A+B | fix (B-12 reject) | spec set, round 2 review | no |
 | R2 | 9 findings (`reviews/R-spec-set/round-2/verification.md`): nested presets, workflow-level env, `updateNotScheduled`, T13 baseline, mixed-branch fixture, hourly cron | 1 CRITICAL | A+B | fix | spec set, unreviewed (last round) | no |
 | 0 | public-text rule: docs task 3.1 runs in a normal task subagent | process | orchestrator | deviate | the section's content is fixed by DUA-10 and T15; the reviewer and the scrub gate check for private content | no |
-| L G0 | DUA-9 scenario names branch `renovate/helm`; a major Helm release lands in `renovate/major-helm` (same group, `separateMajorMinor`) | WARNING | A | defer | spec wording precision for stage B; 2.4 asserts both branch names | no |
+| L G0 | DUA-9 scenario names branch `renovate/helm`; a major Helm release lands in `renovate/major-helm` (same group, `separateMajorMinor`) | WARNING | A | fix | DUA-9 scenario and its verification row name both branches; 2.4 asserts both | no |
 | L G0 | proposal assumptions "one automerge per run" (job restarts once) and "from v46.3.10 on" (present from v46.3.4) are imprecise, not false | NIT | author, A agrees | record | `evidence/0.4.md` *Assumption check* | no |
 
 ## Tasks
