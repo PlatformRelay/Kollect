@@ -212,8 +212,9 @@ jobs:
         with:
           # Derived from `go-licenses csv ./...` over the module graph (2026-10-05):
           # 141 Apache-2.0, 60 MIT, 42 BSD-3-Clause, 9 BSD-2-Clause, 1 ISC. Unknown licences do
-          # not fail.
-          allow-licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC
+          # not fail. MIT-CMU (added 2026-10-26) is the permissive HPND-style licence Pillow uses
+          # from 13.0.0; Pillow is a docs-site build tool only (docs/requirements-docs.txt).
+          allow-licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, MIT-CMU
           # One exception: from v0.60.0 the scanner reports golang.org/x/net as "BSD-3-Clause AND
           # LicenseRef-scancode-google-patent-license-golang" — the Go PATENTS file, an extra
           # patent grant that every golang.org/x module ships and go-licenses reads as plain
