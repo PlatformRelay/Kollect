@@ -25,10 +25,11 @@ and is recorded here.
   is pinned. `renovate-image` holds `ghcr.io/renovatebot/renovate:<version>@sha256:<digest>`. The
   action (v46.3.10 or later) uses it as given, and Renovate's own `github-actions` manager
   updates tag and digest together. Renovate releases several times a day, so that dependency gets
-  a group of its own on a weekly schedule. It is never auto-merged: the next run would execute it
-  with the token. The config validator runs from the same reference, so the validator and the
+  a group of its own with a weekly schedule window. It is never auto-merged: the next run would
+  execute it with the token. The workflow no longer sets `RENOVATE_FORCE` (it dropped every
+  schedule on a manual run), so a dispatch respects that window too. The config validator runs from the same reference, so the validator and the
   bot cannot disagree.
-- **Auto-merge: Docker image digests only.** Model-aligned decision 2026-10-26 (outcome D of four,
+- **Auto-merge: Docker image digests only.** Delegated decision 2026-10-26 (outcome D of four,
   2 of 3 legs), pending operator validation. Only `digest` updates of the `dockerfile` and
   `devcontainer` managers auto-merge. Today those are the golang builder and Debian base images
   and the devcontainer image. They are the bulk of the manual load and change no version. The
@@ -43,7 +44,10 @@ and is recorded here.
 - **Renovate merges, not GitHub (`platformAutomerge: false`).** Renovate merges only after every
   check reported on the head SHA is green, with `automergeStrategy: "rebase"` (the only method
   the ruleset allows). `rebaseWhen: "behind-base-branch"` is explicit, so a PR behind `main` is
-  rebased and re-tested before it can merge. The residual risk: the merge runs as a bypass
+  rebased and re-tested before it can merge. Read in Renovate 44.167.7's source: a head with no
+  statuses and no check runs is pending, a queued, cancelled or timed-out run is pending, a failed
+  one is red, and only green merges (task 0.4 (e) records it for the pinned version). The
+  residual risk: the merge runs as a bypass
   actor, so GitHub does not stop a merge when a required check never started (a GitHub outage, or
   a broken workflow file; digest bumps touch neither). Every required-check workflow triggers on
   every `pull_request` without a path filter (verified 2026-10-26). The release is tag-driven and
@@ -55,21 +59,27 @@ and is recorded here.
   `gh` lookup were cut.
 - **Validation in a required job.** `hack/ci/renovate-config-validate.sh` reads the image
   reference from `renovate.yaml` and refuses one without a digest. It then runs
-  `renovate-config-validator --strict` on `renovate.json` and `.github/renovate-config.json`. The
+  `renovate-config-validator --strict --no-global renovate.json` and
+  `renovate-config-validator --strict .github/renovate-config.json`: the validator treats named
+  files as global config unless told otherwise, and each file is validated in its own mode. The
   `lint` job runs it on every PR; `lint` is required and unconditional. Cost: one image pull
   (about 30 s, run log 39230872281).
 - **Structural guard, not an evaluator.** No offline tool evaluates Renovate's merged rules
   without network lookups. `hack/test/renovate_policy_test.sh` therefore asserts the shape with
   `jq` and `yq`:
-  - Exactly one `packageRules` entry sets `automerge: true`, with exactly the allowed matchers.
-  - No top-level or preset automerge.
+  - Exactly one object in either config file sets `automerge: true`, at any depth, and it is the
+    allowed `packageRules` entry with exactly its matchers; `extends` is exactly
+    `config:recommended`; the global config has a fixed key set.
+  - No `RENOVATE_*` environment override in the workflow beyond the repository name.
   - The automerge settings above.
   - The Renovate-image rule.
   - The dashboard is on.
   - The workflow's token, permissions, schedule, concurrency and pin.
   - The `lint` wiring.
 
-  A local Renovate `lookup` probe (task 2.1) checks the rules against Renovate itself once.
+  A local Renovate `lookup` probe on a copy with deliberately older pins (tasks 0.4 and 2.4) checks the
+  rules against Renovate itself; the merge conditions are read from the pinned Renovate's source
+  (task 0.4 (e)).
 - **Helm rule by `packageName`.** Both the custom regex manager (`depName` = `packageName` =
   `helm/helm`) and the `azure/setup-helm` input (`depName` `helm`, `packageName` `helm/helm`)
   then match one rule. This puts `release.yaml` back in the Helm group.
