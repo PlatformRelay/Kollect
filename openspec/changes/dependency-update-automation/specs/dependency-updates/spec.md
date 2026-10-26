@@ -2,151 +2,181 @@
 
 ## Purpose
 
-Defines how dependency update pull requests are created, how they get CI, and under which narrow
-conditions they merge without a human, so dependencies stay current without weakening the merge
-gates or exposing privileged credentials.
+Defines how dependency update pull requests are created, validated and tested, and the narrow
+case in which the bot merges one without a human, so dependencies stay current without weakening
+the merge gates. DUA-6 (the changelog-sync checkout token) was split out and is archived in
+`2026-10-16-changelog-sync-checkout-token`; the ID is not reused.
 
 ## ADDED Requirements
 
-### Requirement: DUA-1 Renovate pull requests start CI and run daily
+### Requirement: DUA-1 One self-hosted bot, its token only, fail closed
 
-`.github/workflows/renovate.yaml` SHALL authenticate Renovate with an installation token minted by
-`actions/create-github-app-token` from App credentials in repository secrets, SHALL NOT fall back to
-`github.token`, and SHALL run at least daily.
+`.github/workflows/renovate.yaml` SHALL be the only dependency-update bot workflow. It SHALL pass
+`secrets.RENOVATE_TOKEN` to Renovate and nothing else, SHALL fail before Renovate starts with an
+error naming the secret when it is empty, and its job SHALL grant `GITHUB_TOKEN` no more than
+`contents: read`. The maintainer docs SHALL record that the hosted Renovate App is unused.
 
-#### Scenario: Token step present
+#### Scenario: Token present
 
-- **WHEN** the Renovate workflow runs
-- **THEN** the token passed to the Renovate action comes from the `create-github-app-token` step output
+- **WHEN** the Renovate workflow runs with `RENOVATE_TOKEN` set
+- **THEN** the Renovate step receives that secret as its token
 
-#### Scenario: Secrets missing
+#### Scenario: Token missing
 
-- **WHEN** the App secrets are not set
-- **THEN** the job SHALL fail naming the missing secret; it SHALL NOT proceed with `github.token`
+- **WHEN** `RENOVATE_TOKEN` is empty
+- **THEN** the job fails before the Renovate step with a message naming `RENOVATE_TOKEN`, and SHALL NOT run Renovate with `github.token`
 
-#### Scenario: Schedule weakened
+#### Scenario: Fallback or write grant reintroduced
 
-- **WHEN** the cron is changed to run less often than daily
+- **WHEN** the workflow references `github.token` or `secrets.GITHUB_TOKEN` for Renovate, or grants `GITHUB_TOKEN` any write permission
 - **THEN** the guard SHALL fail
 
-### Requirement: DUA-2 Bot merges use rebase only, after every check is green
+### Requirement: DUA-2 Daily runs, one at a time
 
-Renovate SHALL merge with `automergeStrategy: "rebase"` and `platformAutomerge: false`. No
-configuration SHALL select squash or a merge commit for a bot PR.
+The Renovate workflow SHALL run on a schedule at least once a day and on `workflow_dispatch`, and
+SHALL declare a `concurrency` group with `cancel-in-progress: false`.
 
-#### Scenario: Eligible PR merges
+#### Scenario: Daily schedule
 
-- **WHEN** an eligible bot PR has every check run on its head SHA green and is up to date
-- **THEN** it is rebase-merged
+- **WHEN** the workflow's `schedule` is read
+- **THEN** some cron entry fires every day
 
-#### Scenario: Any check red or pending
+#### Scenario: Schedule weakened or overlap allowed
 
-- **WHEN** any check run on the head SHA is red or pending, required or not
-- **THEN** the PR SHALL NOT merge
-
-#### Scenario: Squash or merge strategy configured
-
-- **WHEN** `renovate.json` sets `automergeStrategy` to `squash` or `merge-commit`, or a workflow runs `gh pr merge --squash` or `--merge`
+- **WHEN** every cron entry fires less than daily, or the concurrency group is removed or set to cancel in progress
 - **THEN** the guard SHALL fail
 
-#### Scenario: PR behind main
+### Requirement: DUA-3 The Renovate that runs is pinned and never self-merged
 
-- **WHEN** a bot PR is behind `main` under the up-to-date rule
-- **THEN** it is not merged until Renovate rebases it at a later run, and the rebased head must pass checks again
+The Renovate step SHALL use `renovatebot/github-action` at v46.3.10 or later with a
+`renovate-image` of the form `ghcr.io/renovatebot/renovate:<version>@sha256:<64 hex>`.
+`renovate.json` SHALL group that image alone on a weekly schedule and SHALL NOT auto-merge it.
 
-### Requirement: DUA-3 Auto-merge is narrow
+#### Scenario: Pinned image
 
-Auto-merge SHALL apply only to `patch` and `minor` updates of Go modules from the `gomod` manager,
-and SHALL NOT apply to `major` updates, `k8s.io/` and `sigs.k8s.io/` modules, the `go` directive,
-the Dockerfile manager, any `github-actions` update, any `custom.regex` pinned tool, or any
-`digest` or `pinDigest` update. The deny rules SHALL be the last entries of `packageRules`.
+- **WHEN** the workflow is read
+- **THEN** `renovate-image` carries an exact version and a digest, and no `renovate-version` input is set
 
-#### Scenario: Patch bump of a Go module
+#### Scenario: Floating or unpinned image
 
-- **WHEN** Renovate proposes a patch update of a non-Kubernetes Go module older than the cooldown
+- **WHEN** `renovate-image` is removed, has no digest, or uses a floating tag such as `44` or `latest`
+- **THEN** the guard SHALL fail
+
+#### Scenario: Image bump PR
+
+- **WHEN** Renovate proposes a new Renovate image
+- **THEN** it opens its own PR at most weekly, and that PR is not auto-merged
+
+### Requirement: DUA-4 The dependency dashboard is on
+
+`renovate.json` SHALL NOT extend `:disableDependencyDashboard` or set `dependencyDashboard` to
+false, so Renovate keeps one dashboard issue listing pending, rate-limited, awaiting-age and
+errored updates.
+
+#### Scenario: Dashboard issue after a run
+
+- **WHEN** Renovate completes a run on `main`
+- **THEN** the repository has an open "Dependency Dashboard" issue authored by the token's user
+
+#### Scenario: Dashboard disabled again
+
+- **WHEN** the preset or the setting that disables the dashboard is added
+- **THEN** the guard SHALL fail
+
+### Requirement: DUA-5 The Renovate config is validated in a required job
+
+The required `lint` job SHALL run `hack/ci/renovate-config-validate.sh`. The script SHALL take the
+image reference from `renovate.yaml`, SHALL refuse one without a digest, and SHALL run
+`renovate-config-validator --strict` from that image on `renovate.json` and
+`.github/renovate-config.json`, failing when the validator does.
+
+#### Scenario: Valid config
+
+- **WHEN** both config files are valid and need no migration
+- **THEN** the step passes
+
+#### Scenario: Invalid or outdated config
+
+- **WHEN** `renovate.json` has an unknown option, a wrong type, or a setting the validator would migrate
+- **THEN** the `lint` job fails
+
+#### Scenario: Validation unwired or unpinned
+
+- **WHEN** the `lint` step is removed, made conditional or allowed to fail, or the script would run an image without a digest
+- **THEN** the guard SHALL fail
+
+### Requirement: DUA-7 Only Docker image digests auto-merge
+
+Exactly one `packageRules` entry SHALL set `automerge: true`. It SHALL match only `matchManagers`
+`dockerfile` and `devcontainer` and `matchUpdateTypes` `digest`. No other rule, top-level
+setting or `extends` preset SHALL enable automerge. A branch holding any other update SHALL NOT
+auto-merge.
+
+#### Scenario: Base image digest bump
+
+- **WHEN** Renovate proposes only a new digest for a Dockerfile or devcontainer image
 - **THEN** the PR is eligible for auto-merge
 
-#### Scenario: Action or tool bump
+#### Scenario: Anything else
 
-- **WHEN** Renovate proposes any update of a GitHub Action or a pinned tool (Task, git-cliff, Helm, golangci-lint, gitleaks)
-- **THEN** the PR is NOT eligible, because those run in jobs holding privileged tokens or in release workflows
+- **WHEN** Renovate proposes a Go module, the Go toolchain version, a GitHub Action, a pinned tool, a docs package, the Renovate image or a Docker tag change, or a group mixing one of those with a digest
+- **THEN** the PR is NOT auto-merged
 
-#### Scenario: Major bump, Kubernetes group, digest
+#### Scenario: Scope widened
 
-- **WHEN** Renovate proposes a major update, a `k8s.io/` or `sigs.k8s.io/` update, or a digest update
-- **THEN** the PR is NOT eligible
-
-#### Scenario: Rule appended after the deny rules
-
-- **WHEN** a `packageRules` entry is added after the deny rules
-- **THEN** the `jq` guard SHALL fail
-
-### Requirement: DUA-4 New releases wait seven days
-
-Updates eligible for auto-merge SHALL set `minimumReleaseAge` to at least `7 days`. No eligible
-update SHALL be exempt from the age rule.
-
-#### Scenario: Release one day old
-
-- **WHEN** a new version was published one day ago
-- **THEN** Renovate does not create or merge the update yet
-
-#### Scenario: Setting removed
-
-- **WHEN** `minimumReleaseAge` is absent or below 7 days on an automerge rule
+- **WHEN** a second rule sets `automerge: true`, the automerge rule gains a manager or update type, or an automerge preset or top-level `automerge` is added
 - **THEN** the guard SHALL fail
 
-### Requirement: DUA-5 Bot credentials carry no bypass and are not the changelog App
+### Requirement: DUA-8 Bot merges wait for every check and rebase only
 
-The Renovate App SHALL NOT be on the `protect-main` bypass list, and SHALL be a different App from
-the one used by `changelog-sync.yaml`, compared by App slug.
+`renovate.json` SHALL set `platformAutomerge: false`, `automergeType: "pr"`,
+`automergeStrategy: "rebase"` and `rebaseWhen: "behind-base-branch"`, and SHALL NOT set
+`ignoreTests`. No workflow SHALL merge bot PRs, and none SHALL combine `pull_request_target` with
+a merge command.
 
-#### Scenario: Same App slug
+#### Scenario: Eligible PR all green
 
-- **WHEN** the token's `app-slug` equals the changelog-sync App slug variable
-- **THEN** the Renovate workflow SHALL fail before running Renovate
+- **WHEN** an eligible PR is up to date and every check on its head SHA is green
+- **THEN** Renovate rebase-merges it during a run
 
-#### Scenario: Same secret names
+#### Scenario: Check red, pending or behind
 
-- **WHEN** both workflows reference the same secret names
+- **WHEN** any check on the head SHA is red or pending, required or not, or the PR is behind `main`
+- **THEN** it is not merged in that run; a behind PR is rebased and must pass again
+
+#### Scenario: Setting weakened
+
+- **WHEN** `platformAutomerge` is true or absent, the strategy is not `rebase`, `ignoreTests` is set, or a workflow merges bot PRs
 - **THEN** the guard SHALL fail
 
-#### Scenario: Bot PR with a failing check
+### Requirement: DUA-9 Every Helm pin moves in one group
 
-- **WHEN** a bot PR has a failing required check
-- **THEN** the merge is blocked as for a human PR; no bypass path exists
+The Helm group rule in `renovate.json` SHALL match `matchPackageNames` `helm/helm`, so the
+custom-manager pins and the `azure/setup-helm` input in `release.yaml` land in one PR.
 
-### Requirement: DUA-7 Auto-merge pauses on a red main and has no pull_request_target variant
+#### Scenario: Helm release
 
-The Renovate run SHALL set `automerge: false` when the latest push run of `ci.yaml` on `main` is not
-`success`. No workflow SHALL merge bot PRs from a `pull_request_target` trigger.
+- **WHEN** Renovate finds a new `helm/helm` release
+- **THEN** one branch, `renovate/helm`, updates every Helm pin including `release.yaml`
 
-#### Scenario: Main red
+#### Scenario: Rule matches depName only
 
-- **WHEN** the latest push CI on `main` failed or is in progress
-- **THEN** the Renovate run creates and updates PRs but merges none
-
-#### Scenario: Main recovers
-
-- **WHEN** main goes red, then green
-- **THEN** the next run merges eligible PRs again (transition red to green)
-
-#### Scenario: Lookup fails
-
-- **WHEN** the run lookup errors
-- **THEN** the run behaves as red (no merges)
-
-#### Scenario: pull_request_target merge workflow added
-
-- **WHEN** a workflow combines `pull_request_target` with a merge command
+- **WHEN** the rule matches by `matchDepNames` `helm/helm` alone
 - **THEN** the guard SHALL fail
 
-### Requirement: DUA-8 Hard prerequisites are met before auto-merge is enabled
+### Requirement: DUA-10 Maintainer docs describe the bot
 
-`automerge` SHALL NOT be enabled in `renovate.json` until the ruleset requires `lint`, `vulncheck`,
-`workflow-security` and `dependency-review`, and `install-git-cliff.sh` verifies a checksum.
+`docs/development/tooling-setup.md` SHALL describe the schedule, the token and its owner, the
+dashboard, what auto-merges and why, how to pause the bot, how to rebase a stuck PR, how to
+validate the config, that the hosted Renovate App is unused, and that the maintainer reviews bot
+merges since the last tag before approving a release.
 
-#### Scenario: Enabled early
+#### Scenario: Docs match the config
 
-- **WHEN** the change that enables `automerge` is reviewed
-- **THEN** the review record cites the operator's evidence of the ruleset and the merged installer change
+- **WHEN** the docs section is read against `renovate.yaml` and `renovate.json`
+- **THEN** each statement about schedule, token, scope and dashboard matches them
+
+#### Scenario: Docs drift
+
+- **WHEN** the docs section stops naming the auto-merge scope or the schedule
+- **THEN** the guard SHALL fail
