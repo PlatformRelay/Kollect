@@ -156,27 +156,21 @@ func exportStatusFromInventory(inv *kollectdevv1alpha1.KollectInventory) []Expor
 		sinkMessage := message
 		lastExportSink := lastExport
 
+		// SDC-6: the reconcilers name each entry "<family>/<name>" (sinkExportKey), so a
+		// snapshot and a database sink of the same name keep separate entries.
+		entryName := binding.Family + "/" + binding.Name
 		for i := range inv.Status.SinkExports {
-			if inv.Status.SinkExports[i].Name != ref.Name {
+			if inv.Status.SinkExports[i].Name != entryName {
 				continue
 			}
 			se := &inv.Status.SinkExports[i]
+			// A matched entry reports its own time, empty when it never exported.
+			lastExportSink = ""
 			if se.LastExportTime != nil {
 				lastExportSink = se.LastExportTime.UTC().Format(time.RFC3339)
 			}
 			if syncedCond := apimeta.FindStatusCondition(se.Conditions, kollectdevv1alpha1.ConditionSynced); syncedCond != nil {
-				switch syncedCond.Status {
-				case metav1.ConditionTrue:
-					sinkStatus = "ok"
-				case metav1.ConditionFalse:
-					if syncedCond.Reason == kollectdevv1alpha1.ReasonDebounced {
-						sinkStatus = "debounced"
-					} else {
-						sinkStatus = statusDegraded
-					}
-				default:
-					sinkStatus = statusUnknown
-				}
+				sinkStatus = sinkExportStatusFromCondition(syncedCond)
 				sinkMessage = syncedCond.Message
 			}
 			break
@@ -192,6 +186,23 @@ func exportStatusFromInventory(inv *kollectdevv1alpha1.KollectInventory) []Expor
 	}
 
 	return out
+}
+
+// sinkExportStatusFromCondition maps a per-sink Synced condition to the read API status, reason
+// first: a debounced sink is reported as debounced whatever the condition's status (SDC-6).
+func sinkExportStatusFromCondition(cond *metav1.Condition) string {
+	if cond.Reason == kollectdevv1alpha1.ReasonDebounced {
+		return "debounced"
+	}
+
+	switch cond.Status {
+	case metav1.ConditionTrue:
+		return "ok"
+	case metav1.ConditionFalse:
+		return statusDegraded
+	default:
+		return statusUnknown
+	}
 }
 
 func (s *Server) handleStatusInventories(w http.ResponseWriter, r *http.Request) {

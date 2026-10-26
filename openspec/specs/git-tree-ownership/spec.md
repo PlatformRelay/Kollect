@@ -159,8 +159,7 @@ An export that pushes to a branch other than the one it cloned SHALL, before wri
 every path it writes, records or pre-claims against the ownership records of the freshly fetched
 merge target tip, in addition to the checked-out branch. A path that another inventory's record on the
 target lists SHALL fail the export with a terminal error naming the path, the target branch, the
-owning inventory and its record file. Malformed ownership metadata on the target SHALL fail the
-export. A target branch that does not exist yet SHALL hold no claims.
+owning inventory and its record file.
 
 #### Scenario: Claim merged after the feature branch was pushed
 
@@ -185,14 +184,38 @@ export. A target branch that does not exist yet SHALL hold no claims.
 - **WHEN** a non-final part pre-claims a set manifest that another inventory's record on the target lists
 - **THEN** the part fails with a terminal error
 
+### Requirement: IEI-10.2 Unreadable target metadata fails, and a new target holds no claims
+
+In the IEI-10 check, malformed ownership metadata on the merge target SHALL fail the export. A
+target branch that does not exist yet SHALL hold no claims.
+
+#### Scenario: Malformed ownership metadata on the target
+
+- **WHEN** another inventory's ownership record on the merge target is a symlink, or `.kollect-prune` on the target is not a real directory
+- **THEN** the merge-request export fails with a terminal error
+
+#### Scenario: Target branch does not exist yet
+
+- **WHEN** the merge target branch does not exist on the remote
+- **THEN** the target check finds no claims and SHALL NOT refuse the export
+
 ### Requirement: IEI-11 Each inventory has its own merge-request branch
 
 The GitLab sink SHALL push the merge request of a `KollectInventory` to `<prefix>/<namespace>/<name>`
 and that of a `KollectClusterInventory` to `<prefix>/_cluster/<name>`, using the kind the export
-pipeline passes with every export. A `KollectClusterInventory` `X` and a `KollectInventory` `X` in
-namespace `cluster` SHALL NOT share a branch, and no branch SHALL carry the ownership records of two
-inventories. A caller without a kind SHALL get the cluster inventory's branch for path namespace
-`cluster` and the namespaced inventory's branch otherwise.
+pipeline passes with every export. A caller without a kind SHALL get the cluster inventory's
+branch for path namespace `cluster` and the namespaced inventory's branch otherwise.
+
+#### Scenario: Branch names by kind
+
+- **WHEN** the branch prefix is `kollect`
+- **THEN** `KollectInventory` `cluster/platform` pushes to `kollect/cluster/platform` and `KollectClusterInventory` `platform` to `kollect/_cluster/platform`
+- **AND** a caller without a kind gets `kollect/_cluster/platform` for path namespace `cluster` and name `platform`, and `kollect/team-a/apps` for `team-a/apps`
+
+### Requirement: IEI-11.2 Two inventories never share a merge-request branch
+
+A `KollectClusterInventory` `X` and a `KollectInventory` `X` in namespace `cluster` SHALL NOT share
+a branch, and no branch SHALL carry the ownership records of two inventories.
 
 #### Scenario: Same object path, two kinds
 
@@ -216,9 +239,8 @@ can repair the branch by deleting one record.
 When a `KollectInventory` or `KollectClusterInventory` is deleted, the cleanup SHALL remove its
 ownership record `.kollect-prune/<sha256(owner)>.json` from every bound Git or GitLab sink it can
 reach, under `deletionPolicy: Retain` and `Delete`, including when the deletion skips the retraction
-because another live inventory shares its export identity. The owner SHALL be derived from the
-inventory's kind, namespace and name with the function the export uses. The finalizer SHALL NOT be
-released while the record is still present on a reachable sink.
+because another live inventory shares its export identity. The finalizer SHALL NOT be released
+while the record is still present on a reachable sink.
 
 #### Scenario: Retain deletion of a cluster inventory
 
@@ -235,6 +257,11 @@ released while the record is still present on a reachable sink.
 
 - **WHEN** `KollectClusterInventory` `platform` is deleted with `deletionPolicy: Delete` while `KollectInventory` `cluster/platform` exists
 - **THEN** the cluster inventory's record is removed and no exported file is deleted
+
+### Requirement: ROD-1.2 The released owner is the one the export recorded
+
+The owner whose record ROD-1 removes SHALL be derived from the inventory's kind, namespace and
+name with the function the export uses.
 
 #### Scenario: No identity
 

@@ -83,42 +83,90 @@ func TestSetSinkExportSynced(t *testing.T) {
 	}
 }
 
+// TestAggregateInventorySync pins the aggregate rule of SDC-2 and SDC-3: no failed sink means
+// Synced=True/Exported with one message for export and debounce passes; any failure keeps False.
 func TestAggregateInventorySync(t *testing.T) {
 	t.Parallel()
 
-	var conditions []metav1.Condition
-	aggregateInventorySync(&conditions, 1, 2, 0, 0)
-	synced := apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Status != metav1.ConditionTrue || synced.Reason != "Exported" {
-		t.Fatalf("exported = %#v", synced)
+	cases := []struct {
+		name                        string
+		exported, debounced, failed int
+		wantStatus                  metav1.ConditionStatus
+		wantReason                  string
+		wantMessage                 string
+	}{
+		{"all exported", 2, 0, 0, metav1.ConditionTrue, reasonExported, "2/2 sink(s) up to date"},
+		{"all debounced", 0, 2, 0, metav1.ConditionTrue, reasonExported, "2/2 sink(s) up to date"},
+		{"one exported, one debounced", 1, 1, 0, metav1.ConditionTrue, reasonExported, "2/2 sink(s) up to date"},
+		{"one exported, one failed", 1, 0, 1, metav1.ConditionFalse, kollectdevv1alpha1.ReasonPartiallySynced, ""},
+		{"one debounced, one failed", 0, 1, 1, metav1.ConditionFalse, reasonProgressing, ""},
+		{"only failed", 0, 0, 1, metav1.ConditionFalse, reasonProgressing, ""},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 0, 2, 0)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != kollectdevv1alpha1.ReasonPartiallySynced {
-		t.Fatalf("all debounced = %#v", synced)
+			var conditions []metav1.Condition
+			aggregateInventorySync(&conditions, 1, tc.exported, tc.debounced, tc.failed)
+			synced := apimeta.FindStatusCondition(conditions, conditionSynced)
+			if synced == nil {
+				t.Fatal("aggregate Synced condition not set")
+			}
+			if synced.Status != tc.wantStatus || synced.Reason != tc.wantReason {
+				t.Fatalf("aggregate Synced = %s/%s %q, want %s/%s",
+					synced.Status, synced.Reason, synced.Message, tc.wantStatus, tc.wantReason)
+			}
+			if tc.wantMessage != "" && synced.Message != tc.wantMessage {
+				t.Fatalf("aggregate Synced message = %q, want %q", synced.Message, tc.wantMessage)
+			}
+		})
 	}
+}
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 1, 1, 0)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != kollectdevv1alpha1.ReasonPartiallySynced {
-		t.Fatalf("partial debounce = %#v", synced)
+// TestSetSinkExportDebounced pins SDC-1: a debounced sink reads Synced=True/Debounced and its
+// message names the interval with nothing that changes between reconciles.
+func TestSetSinkExportDebounced(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		interval time.Duration
+		want     string
+	}{
+		{"interval 15m", 15 * time.Minute, "15m0s"},
+		{"interval 0s", 0, "only on change"},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 1, 0, 1)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != kollectdevv1alpha1.ReasonPartiallySynced {
-		t.Fatalf("partial export failure = %#v", synced)
-	}
+			status := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "database/pg"}
+			setSinkExportDebounced(status, 3, tc.interval)
+			first := apimeta.FindStatusCondition(status.Conditions, conditionSinkSynced)
+			if first == nil {
+				t.Fatal("per-sink Synced condition not set")
+			}
+			firstCopy := *first
+			if firstCopy.Status != metav1.ConditionTrue || firstCopy.Reason != kollectdevv1alpha1.ReasonDebounced {
+				t.Fatalf("per-sink Synced = %s/%s, want True/Debounced", firstCopy.Status, firstCopy.Reason)
+			}
+			if !strings.Contains(firstCopy.Message, tc.want) {
+				t.Fatalf("per-sink Synced message = %q, want it to contain %q", firstCopy.Message, tc.want)
+			}
+			if firstCopy.ObservedGeneration != 3 {
+				t.Fatalf("observedGeneration = %d, want 3", firstCopy.ObservedGeneration)
+			}
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 0, 0, 1)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != "Progressing" {
-		t.Fatalf("failed = %#v", synced)
+			time.Sleep(1100 * time.Millisecond)
+			setSinkExportDebounced(status, 3, tc.interval)
+			second := apimeta.FindStatusCondition(status.Conditions, conditionSinkSynced)
+			if second.Message != firstCopy.Message {
+				t.Fatalf("per-sink Synced message changed between reconciles: %q -> %q", firstCopy.Message, second.Message)
+			}
+			if !second.LastTransitionTime.Equal(&firstCopy.LastTransitionTime) {
+				t.Fatalf("per-sink lastTransitionTime moved: %v -> %v", firstCopy.LastTransitionTime, second.LastTransitionTime)
+			}
+		})
 	}
 }
 
@@ -160,12 +208,12 @@ func TestPerSinkCoalesceTracker_shouldSkip_zeroIntervalAfterRecord(t *testing.T)
 	invKey := "default/inv"
 	sinkName := "git"
 
-	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "", 0, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", 0, now) {
 		t.Fatal("first export must not skip")
 	}
 
-	tracker.record(invKey, sinkName, 1, "hash", "", now)
-	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "", 0, now) {
+	tracker.record(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", now)
+	if !tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", 0, now) {
 		t.Fatal("material-change-only cadence should skip identical payload")
 	}
 }
@@ -184,25 +232,25 @@ func TestPerSinkCoalesceTracker_requestedAtAxis(t *testing.T) {
 	interval := time.Minute
 	now := time.Now()
 
-	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-1", interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-1", interval, now) {
 		t.Fatal("first export must not skip, even with a requestedAt set")
 	}
 
-	tracker.record(invKey, sinkName, 1, "hash", "ts-1", now)
-	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-1", interval, now) {
+	tracker.record(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-1", now)
+	if !tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-1", interval, now) {
 		t.Fatal("unchanged requestedAt within interval should skip")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-2", interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-2", interval, now) {
 		t.Fatal("a different requestedAt value must bypass the debounce")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "", interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", interval, now) {
 		t.Fatal("removal of the annotation must bypass the debounce (absence is a value)")
 	}
 
-	tracker.record(invKey, sinkName, 1, "hash", "", now)
-	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "", interval, now) {
+	tracker.record(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", now)
+	if !tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", interval, now) {
 		t.Fatal("steady absence should skip again after the forced export recorded it")
 	}
 }
@@ -220,17 +268,17 @@ func TestPerSinkCoalesceTracker_requestedAt_zeroIntervalStillReexports(t *testin
 	sinkName := "git"
 	now := time.Now()
 
-	tracker.record(invKey, sinkName, 1, "hash", "ts-1", now)
-	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-1", 0, now) {
+	tracker.record(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-1", now)
+	if !tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-1", 0, now) {
 		t.Fatal("zero-interval binding should skip an identical payload (material-change-only cadence)")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-2", 0, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-2", 0, now) {
 		t.Fatal("zero-interval binding must still re-export on a requestedAt change")
 	}
 
-	tracker.record(invKey, sinkName, 1, "hash", "ts-2", now)
-	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-2", 0, now) {
+	tracker.record(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-2", now)
+	if !tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "ts-2", 0, now) {
 		t.Fatal("zero-interval binding resumes skipping after the forced export recorded the new value")
 	}
 }
@@ -252,20 +300,20 @@ func TestPerSinkCoalesceTracker_prunesStaleEntries(t *testing.T) {
 
 	// Stale entry: recorded once, then its owning inventory/sink is deleted
 	// and nothing ever touches this key again.
-	tracker.record(staleInvKey, staleSink, 1, "hash-v1", "", base)
+	tracker.record(staleInvKey, staleSink, sinkExportIdentity{}, 1, "hash-v1", "", base)
 
 	// Active entry: keeps recording well within the TTL window.
 	activeNow := base
 	for i := 0; i < 3; i++ {
 		activeNow = activeNow.Add(coalesceStateTTL / 4)
-		tracker.record(activeInvKey, activeSink, int64(i), "hash-active", "", activeNow)
+		tracker.record(activeInvKey, activeSink, sinkExportIdentity{}, int64(i), "hash-active", "", activeNow)
 	}
 
 	// Long after the stale entry's TTL has elapsed, the active sink records
 	// again. This is the prune trigger point: any record() call sweeps the
 	// whole map for entries that have aged out.
 	farFuture := base.Add(coalesceStateTTL + time.Minute)
-	tracker.record(activeInvKey, activeSink, 5, "hash-final", "", farFuture)
+	tracker.record(activeInvKey, activeSink, sinkExportIdentity{}, 5, "hash-final", "", farFuture)
 
 	tracker.mu.Lock()
 	_, staleStillPresent := tracker.states[tracker.key(staleInvKey, staleSink)]
@@ -281,7 +329,7 @@ func TestPerSinkCoalesceTracker_prunesStaleEntries(t *testing.T) {
 
 	// The active entry must still coalesce correctly after surviving a sweep:
 	// an identical payload at the same generation should be skipped.
-	if !tracker.shouldSkip(activeInvKey, activeSink, 5, "hash-final", "", 0, farFuture) {
+	if !tracker.shouldSkip(activeInvKey, activeSink, sinkExportIdentity{}, 5, "hash-final", "", 0, farFuture) {
 		t.Fatal("active entry's coalescing state must remain intact after a sweep")
 	}
 }
@@ -383,36 +431,75 @@ func TestRecordExportPaths(t *testing.T) {
 	}
 }
 
-// carryOverLastExportPaths keeps the previous entry's recorded paths on a
-// rebuilt status entry, so a debounced or failed reconcile never erases the
-// cleanup evidence.
-func TestCarryOverLastExportPaths(t *testing.T) {
+// carryOverSinkExport seeds a rebuilt entry from the previous entry of the same name: the last
+// export time, checksum, recorded paths and the conditions, deep-copied (SDC-5).
+func TestCarryOverSinkExport(t *testing.T) {
 	t.Parallel()
 
-	recorded := []kollectdevv1alpha1.InventorySinkExportStatus{{
-		Name:            "snapshot/git",
-		LastExportPaths: []string{"inventory/team-a/inv.yaml"},
-	}}
-
-	rebuilt := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "snapshot/git"}
-	carryOverLastExportPaths(rebuilt, recorded, "snapshot/git")
-	if len(rebuilt.LastExportPaths) != 1 {
-		t.Fatalf("rebuilt paths = %v, want the recorded paths carried over", rebuilt.LastExportPaths)
+	exportedAt := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+	t1 := metav1.NewTime(exportedAt)
+	l1 := metav1.NewTime(time.Date(2026, 9, 1, 7, 0, 0, 0, time.UTC))
+	previous := []kollectdevv1alpha1.InventorySinkExportStatus{
+		{Name: "database/other", LastChecksum: "other"},
+		{
+			Name:            "snapshot/git",
+			LastExportTime:  &t1,
+			LastChecksum:    "c1",
+			LastExportPaths: []string{"inventory/team-a/inv.yaml", "inventory/team-a/inv-2.yaml"},
+			Conditions: []metav1.Condition{{
+				Type: conditionSinkSynced, Status: metav1.ConditionTrue, Reason: reasonExported,
+				Message: "export completed", LastTransitionTime: l1,
+			}},
+		},
 	}
 
-	// A fresh success already wrote new paths: the carry-over must not win.
-	fresh := &kollectdevv1alpha1.InventorySinkExportStatus{
-		Name:            "snapshot/git",
-		LastExportPaths: []string{"inventory/team-a/inv-v2.yaml"},
+	entry := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "snapshot/git"}
+	carryOverSinkExport(entry, previous, "snapshot/git")
+
+	if entry.LastExportTime == nil || !entry.LastExportTime.Equal(&t1) {
+		t.Fatalf("lastExportTime = %v, want %v carried over", entry.LastExportTime, t1)
 	}
-	carryOverLastExportPaths(fresh, recorded, "snapshot/git")
-	if len(fresh.LastExportPaths) != 1 || fresh.LastExportPaths[0] != "inventory/team-a/inv-v2.yaml" {
-		t.Fatalf("fresh paths = %v, want the new export's paths kept", fresh.LastExportPaths)
+	if entry.LastChecksum != "c1" {
+		t.Fatalf("lastChecksum = %q, want %q carried over", entry.LastChecksum, "c1")
+	}
+	if len(entry.LastExportPaths) != 2 || entry.LastExportPaths[0] != "inventory/team-a/inv.yaml" {
+		t.Fatalf("lastExportPaths = %v, want both recorded paths carried over", entry.LastExportPaths)
+	}
+	synced := apimeta.FindStatusCondition(entry.Conditions, conditionSinkSynced)
+	if synced == nil {
+		t.Fatalf("conditions = %v, want the previous Synced condition carried over", entry.Conditions)
+	}
+	if synced.Status != metav1.ConditionTrue || synced.Reason != reasonExported || !synced.LastTransitionTime.Equal(&l1) {
+		t.Fatalf("carried Synced = %s/%s at %v, want True/%s at %v",
+			synced.Status, synced.Reason, synced.LastTransitionTime, reasonExported, l1)
 	}
 
-	// No previous entry and no export key match: no-op, not a panic.
-	carryOverLastExportPaths(rebuilt, nil, "other")
-	carryOverLastExportPaths(nil, recorded, "snapshot/git")
+	// The seed is a deep copy: changing the new entry leaves the previous one unchanged.
+	setSinkExportSynced(entry, 2, false, reasonExportFailed, "sink unavailable")
+	entry.LastExportPaths[0] = "changed.yaml"
+	*entry.LastExportTime = metav1.NewTime(t1.Add(time.Hour))
+	prevSynced := apimeta.FindStatusCondition(previous[1].Conditions, conditionSinkSynced)
+	if prevSynced.Status != metav1.ConditionTrue || prevSynced.Reason != reasonExported || !prevSynced.LastTransitionTime.Equal(&l1) {
+		t.Fatalf("previous Synced = %s/%s at %v after changing the new entry, want True/%s at %v unchanged",
+			prevSynced.Status, prevSynced.Reason, prevSynced.LastTransitionTime, reasonExported, l1)
+	}
+	if previous[1].LastExportPaths[0] != "inventory/team-a/inv.yaml" {
+		t.Fatalf("previous paths = %v after changing the new entry, want them unchanged", previous[1].LastExportPaths)
+	}
+	if !previous[1].LastExportTime.Time.Equal(exportedAt) {
+		t.Fatalf("previous lastExportTime = %v after changing the new entry, want %v", previous[1].LastExportTime, exportedAt)
+	}
+
+	// No previous entry of that name: the entry stays empty.
+	fresh := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "database/pg"}
+	carryOverSinkExport(fresh, previous, "database/pg")
+	if fresh.LastExportTime != nil || fresh.LastChecksum != "" || len(fresh.LastExportPaths) != 0 || len(fresh.Conditions) != 0 {
+		t.Fatalf("entry with no previous of its name = %+v, want empty", fresh)
+	}
+
+	// Nil entry or no previous entries: no-op, not a panic.
+	carryOverSinkExport(nil, previous, "snapshot/git")
+	carryOverSinkExport(fresh, nil, "database/pg")
 }
 
 // exportEvidenceBySink indexes the export status by export key: the recorded

@@ -13,6 +13,7 @@ import (
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
@@ -36,7 +37,31 @@ const conditionSinkSynced = "Synced"
 // max interval leaves headroom for reconcile jitter/backoff.
 const coalesceStateTTL = 2 * validation.MaxExportInterval
 
+// sinkExportIdentity names the objects a sink export went to (SDC-4): the reconciled inventory
+// object and the family sink object the binding resolved to. The tracker key (inventory
+// namespace/name, sink export key) survives a delete and recreate of either object, and a sink
+// spec edit bumps only the sink's metadata.generation, so the debounce baseline compares these
+// too.
+type sinkExportIdentity struct {
+	inventoryUID   types.UID
+	sinkUID        types.UID
+	sinkGeneration int64
+}
+
+// newSinkExportIdentity builds the identity of an export from the inventory's UID and the
+// resolved sink; a nil sink leaves the sink fields empty.
+func newSinkExportIdentity(inventoryUID types.UID, resolved *sink.ResolvedSink) sinkExportIdentity {
+	identity := sinkExportIdentity{inventoryUID: inventoryUID}
+	if resolved != nil {
+		identity.sinkUID = resolved.UID
+		identity.sinkGeneration = resolved.Generation
+	}
+
+	return identity
+}
+
 type sinkCoalesceState struct {
+	identity        sinkExportIdentity
 	lastExport      time.Time
 	lastChecksum    string
 	lastGeneration  int64
@@ -58,6 +83,7 @@ func (t *perSinkCoalesceTracker) key(invKey, sinkName string) string {
 
 func (t *perSinkCoalesceTracker) shouldSkip(
 	invKey, sinkName string,
+	identity sinkExportIdentity,
 	generation int64,
 	checksum, requestedAt string,
 	interval time.Duration,
@@ -72,6 +98,11 @@ func (t *perSinkCoalesceTracker) shouldSkip(
 
 	state := t.states[t.key(invKey, sinkName)]
 	if state == nil || state.lastGeneration != generation {
+		return false
+	}
+	// SDC-4: the same names can point at another inventory or sink object (deleted and
+	// recreated) or at an edited sink spec; any of those re-exports.
+	if state.identity != identity {
 		return false
 	}
 	if state.lastChecksum != checksum {
@@ -98,7 +129,13 @@ func (t *perSinkCoalesceTracker) shouldSkip(
 	return now.Sub(state.lastExport) < interval
 }
 
-func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int64, checksum, requestedAt string, now time.Time) {
+func (t *perSinkCoalesceTracker) record(
+	invKey, sinkName string,
+	identity sinkExportIdentity,
+	generation int64,
+	checksum, requestedAt string,
+	now time.Time,
+) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -115,10 +152,21 @@ func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int6
 		t.states[k] = state
 	}
 
+	state.identity = identity
 	state.lastExport = now
 	state.lastChecksum = checksum
 	state.lastGeneration = generation
 	state.lastRequestedAt = requestedAt
+}
+
+// forget drops the debounce state of one sink binding (SDC-4): after a failed export the sink is
+// not debounced until an export to it succeeds again, also when the inputs return to those of
+// the last successful export.
+func (t *perSinkCoalesceTracker) forget(invKey, sinkName string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	delete(t.states, t.key(invKey, sinkName))
 }
 
 // pruneStaleLocked evicts entries that haven't recorded an export, nor skipped
@@ -171,6 +219,27 @@ type perSinkExportOutcome struct {
 
 	failedSinks []string
 	exportErrs  []error
+
+	// trackerKey and exportedSinks name the debounce baselines this pass recorded, so a failed
+	// status write can drop them again (forgetUnpersistedExports).
+	trackerKey    string
+	exportedSinks []string
+}
+
+// markExported notes that exportKey exported in this pass and its debounce baseline was recorded.
+func (o *perSinkExportOutcome) markExported(invKey, exportKey string) {
+	o.trackerKey = invKey
+	o.exportedSinks = append(o.exportedSinks, exportKey)
+}
+
+// forgetUnpersistedExports drops the debounce baseline of every sink exported in this pass. The
+// reconcilers call it when the status write that records those exports fails (SDC-5): the next
+// pass then exports them again rather than debouncing against a baseline the persisted
+// status.sinkExports[] entry does not show.
+func forgetUnpersistedExports(tracker *perSinkCoalesceTracker, outcome perSinkExportOutcome) {
+	for _, exportKey := range outcome.exportedSinks {
+		tracker.forget(outcome.trackerKey, exportKey)
+	}
 }
 
 // addSinkFailure accumulates a per-sink export failure (EC-P1-06): FailedSink
@@ -182,6 +251,22 @@ func (o *perSinkExportOutcome) addSinkFailure(exportKey string, err error) {
 	o.exportErrs = append(o.exportErrs, err)
 	o.FailedSink = strings.Join(o.failedSinks, ",")
 	o.ExportErr = aggregateExportErrs(o.exportErrs)
+}
+
+// failSinkExport records a failed export of one sink in an export pass: the outcome counts the
+// failure, the sink's entry reads Synced=False with the error's reason, and the sink's debounce
+// state is dropped.
+func failSinkExport(
+	tracker *perSinkCoalesceTracker,
+	outcome *perSinkExportOutcome,
+	status *kollectdevv1alpha1.InventorySinkExportStatus,
+	invKey, exportKey string,
+	generation int64,
+	err error,
+) {
+	outcome.addSinkFailure(exportKey, err)
+	setSinkExportSynced(status, generation, false, sinkExportFailureReason(err), err.Error())
+	tracker.forget(invKey, exportKey)
 }
 
 // aggregateExportErrs joins per-sink failures into one classified error. The
@@ -255,6 +340,22 @@ func setSinkExportSynced(
 	})
 }
 
+// setSinkExportDebounced marks a sink skipped as up to date (SDC-1): Synced=True, reason
+// Debounced. The message names the effective interval and nothing time-dependent, so repeated
+// debounced reconciles write the same condition.
+func setSinkExportDebounced(
+	status *kollectdevv1alpha1.InventorySinkExportStatus,
+	generation int64,
+	interval time.Duration,
+) {
+	message := fmt.Sprintf("payload unchanged since the last export; re-exported every %s", interval)
+	if interval == 0 {
+		message = "payload unchanged since the last export; exports only on change (interval 0s)"
+	}
+
+	setSinkExportSynced(status, generation, true, kollectdevv1alpha1.ReasonDebounced, message)
+}
+
 func upsertSinkExportStatus(
 	exports *[]kollectdevv1alpha1.InventorySinkExportStatus,
 	name string,
@@ -269,14 +370,17 @@ func upsertSinkExportStatus(
 	return &(*exports)[len(*exports)-1]
 }
 
-// carryOverLastExportPaths keeps the previous sinkExports entry's recorded
-// export paths on the rebuilt status entry. outcome.SinkExports is rebuilt
-// fresh every reconcile and overwrites the inventory status wholesale, so
-// without the carry-over a debounced or failed reconcile would erase the
-// recorded paths the deletion-time cleanup path needs as retraction evidence
-// (K-28). The entry's other fields keep their existing rebuild semantics; the
-// recorded paths are the one piece cleanup cannot recover another way.
-func carryOverLastExportPaths(
+// carryOverSinkExport seeds a rebuilt sinkExports entry from the previous entry of the same
+// name: lastExportTime, lastChecksum, lastExportPaths and the conditions, deep-copied
+// (SDC-5). outcome.SinkExports is rebuilt every reconcile and overwrites the inventory status
+// wholesale, so without the seed a debounced or failed pass would erase the last successful
+// export's record, including the paths the deletion-time cleanup needs as retraction evidence
+// (K-28), and recreate the Synced condition with a new lastTransitionTime. Only a successful
+// export replaces the record; a debounced or failed pass changes the condition only, and
+// SetStatusCondition keeps lastTransitionTime while its status stays the same. Call it on the
+// fresh entry before the pass decides anything for the sink, in the sequential loop over
+// bindings (before any export goroutine starts).
+func carryOverSinkExport(
 	status *kollectdevv1alpha1.InventorySinkExportStatus,
 	previous []kollectdevv1alpha1.InventorySinkExportStatus,
 	exportKey string,
@@ -290,9 +394,11 @@ func carryOverLastExportPaths(
 			continue
 		}
 
-		if len(status.LastExportPaths) == 0 {
-			status.LastExportPaths = previous[i].LastExportPaths
-		}
+		seed := previous[i].DeepCopy()
+		status.LastExportTime = seed.LastExportTime
+		status.LastChecksum = seed.LastChecksum
+		status.LastExportPaths = seed.LastExportPaths
+		status.Conditions = seed.Conditions
 
 		return
 	}
@@ -345,16 +451,19 @@ func aggregateInventorySync(
 	case failed > 0:
 		setSyncedCondition(conditions, generation, false, reasonProgressing,
 			fmt.Sprintf("%d sink(s) failed export", failed))
-	case debounced > 0 && exported == 0:
-		setSyncedCondition(conditions, generation, false, kollectdevv1alpha1.ReasonPartiallySynced,
-			fmt.Sprintf("%d sink(s) debounced", debounced))
-	case debounced > 0:
-		setSyncedCondition(conditions, generation, false, kollectdevv1alpha1.ReasonPartiallySynced,
-			fmt.Sprintf("%d/%d sinks debounced", debounced, exported+debounced))
 	default:
-		setSyncedCondition(conditions, generation, true, reasonExported,
-			fmt.Sprintf("exported to %d sink(s)", exported))
+		// SDC-2: a debounced sink is up to date, so an export pass and a debounce pass over the
+		// same sinks write the same condition.
+		setSyncedCondition(conditions, generation, true, reasonExported, sinksUpToDateMessage(exported, debounced))
 	}
+}
+
+// sinksUpToDateMessage counts exported and debounced sinks as up to date out of the bound sinks
+// of a pass in which no sink failed.
+func sinksUpToDateMessage(exported, debounced int) string {
+	upToDate := exported + debounced
+
+	return fmt.Sprintf("%d/%d sink(s) up to date", upToDate, upToDate)
 }
 
 func latestExportTime(exports []kollectdevv1alpha1.InventorySinkExportStatus) *metav1.Time {

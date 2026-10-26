@@ -13,7 +13,7 @@ import (
 const (
 	// ReasonDebounced indicates export was skipped because the payload is unchanged within the interval.
 	ReasonDebounced = "Debounced"
-	// ReasonPartiallySynced indicates some sinks exported while others are debounced.
+	// ReasonPartiallySynced indicates some sinks exported while others failed.
 	ReasonPartiallySynced = "PartiallySynced"
 )
 

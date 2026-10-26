@@ -1,0 +1,24 @@
+# R spec-set review, round 1: verification
+
+Revision reviewed: `a268bfc96` (spec set `b7871afcd` plus loop state). Legs: reviewer-a (spec
+lens, cold brief `brief-reviewer-a.md`) → BLOCK; reviewer-b (spec lens, fanout.sh `--no-unify`)
+→ BLOCK. Each finding below was checked against the tree by the orchestrator on 2026-10-20.
+
+| # | Finding | Sev (leg) | Verified | Disposition |
+| --- | --- | --- | --- | --- |
+| A1 | Baseline ignores the sink object: a sink spec change or a recreated sink stays debounced, and would read `Synced=True` | CRITICAL (a) | yes: `shouldSkip` compares generation, checksum, `requestedAt` only (`per_sink_export.go:59-99`); `ResolvedSink` has a UID, no generation (`internal/sink/resolver.go:18-25`) | accepted: SDC-4 now names sink UID and `metadata.generation`; design *When a sink counts as up to date*; G3 tests for spec change and recreate; mutations M1, M2 |
+| A2 / B3 | Deleted sink is caught by the reachability gate before `exportToSinks`, so the planned resolve-branch `forget` never runs; the preview debounces an unresolvable sink | CRITICAL (a), WARNING (b) | yes: `kollectinventory_controller.go:153-159`, cluster `:149`; preview ignores the resolve error at `:490` | accepted: the recreate case is covered by the UID check (A1); preview returns "not all debounced" on a resolve error (SDC-4, unit test, M4); G3 recreate test now goes through the reachability failure |
+| A3 / B2 | Total-failure path never writes `outcome.SinkExports`; failed sink keeps `True/Exported`; G2's "base: nil" claim wrong | CRITICAL (a, b) | yes: `kollectinventory_controller.go:251-270` → `setInventoryDegraded`; cluster `:211-231` → `setDegraded` | accepted: SDC-3 requires the per-sink write on total failure (new scenario); design stores `outcome.SinkExports` in both branches; G1 test "marks the only failing sink as not synced" (both kinds), M2; G2 partial-failure test replaces the wrong base claim; proposal *Why* corrected |
+| A4 / B1 | Read API matches the bare sink name; the reconcilers write `<family>/<name>`, so the per-sink override never fires | CRITICAL (a, b) | yes: `internal/inventory/status.go:160` vs `inventory_sink_helpers.go:81-83`; `cov_s06_test.go` uses bare names | accepted: SDC-6 rewritten (canonical key, own `lastExportTime`); test with controller-shaped entries and the same name in two families; proposal *Why* states SDC-6 was false before |
+| A5 | Shard warning emits a Warning Event on every full-path pass at or above 1800 rows | WARNING (a) | yes: `export_spill.go:87`, caller `kollectinventory_controller.go:225-229`; snapshot sinks never short-circuit in the preview | accepted as scope: SDC-5's no-Event clause is scoped below the threshold; non-goal plus follow-up SHARD-WARN-EVENT-CHURN (task 5.1) |
+| A6 | SDC-5 contradicted itself (first debounce must write; failure moves `lastTransitionTime`) | WARNING (a) | yes | fixed: no-write clause applies to a debounced pass after a debounced pass; `lastTransitionTime` kept only while status holds |
+| A7 / B4 | Mixed exported/debounced scenario impossible via `requestedAt` (it invalidates every binding) | WARNING (a, b) | yes: `per_sink_export.go:86-88` before the `0s` return | fixed: scenario and envtest use a 1 s interval on A and a sleep |
+| A8 | Second-precision timestamps make reds and controls nondeterministic | WARNING (a) | yes: `metav1.Time` serialises to seconds | fixed: test rule, 1.1 s sleep between compared passes; fresh `Get` after each reconcile |
+| A9 / B5 | `requested_at_annotation_test.go:257` and `:402` assert the old message | WARNING (a, b) | yes | fixed: *Test changes* rows in 1.1 and proposal *Impact* |
+| A10 | `metrics.md:87` and the `ReasonPartiallySynced` comment still tie the reason to debounce; grep misses multi-line text | WARNING (a) | yes: `docs/operator-manual/metrics.md:87`, `api/v1alpha1/export_interval_types.go:16` | fixed: both in SDC-7 and tasks 1.2 / 4.1; multiline `rg -U` check |
+| A11 / B6 | Matrix covers the namespaced database path only; cluster no-write, restart and other paths missing | WARNING (a), NOTE (b) | partly: cluster rewrites shards and messages each pass | fixed: *both kinds* on the transition and no-write envtests; restart control in G3. Rejected: scope-floor and partition-failure envtests (unit-covered by `ResolveSinkExportInterval` tests and unchanged by this change) |
+| A12 / B7 | Ranges `shouldSkip :59-97`, `record :99-120`, preview `:463-517`; design promised `nextDue` 1 s for `0s` | NOTE (a, b) | yes | fixed: `:59-99`, `:101-122`, `:463-519`; design names the watchdog |
+| B8 | What holds: SDC-4 first clause, no Event at `ExportedCount==0`, per-sink LTT across the reason alternation, mixed path through `updateStatus` | NOTE (b) | — | no action |
+
+Four CRITICALs accepted (A1, A2/B3 as one, A3/B2, A4/B1), so round 2 runs with fresh legs on the
+fixed revision.

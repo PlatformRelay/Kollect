@@ -84,9 +84,12 @@ Append custom rules via `metrics.prometheusRule.additionalRules`.
 
 !!! note "Per-sink export cadence"
     Export debounce is keyed per `(inventory, sink)` ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
-    Metrics aggregate by `sink_type` — use `status.sinkExports[]` or inventory conditions (`PartiallySynced`)
-    to distinguish debounced sinks from export failures. `kollect_export_duration_seconds` and
-    `kollect_sink_errors_total` fire on actual export attempts only.
+    Metrics aggregate by `sink_type` — use the per-sink `Synced` reason in `status.sinkExports[]`
+    to tell debounced sinks from export failures: a debounced sink is `True`, reason `Debounced`, and
+    counts as up to date, so the aggregate stays `Synced=True` when no sink failed; a failed sink is
+    `False`. `kollect_export_debounced_total`
+    counts the skips. `kollect_export_duration_seconds` and `kollect_sink_errors_total` fire on
+    actual export attempts only.
 
 ## Metric catalog
 

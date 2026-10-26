@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -33,20 +34,20 @@ func TestPerSinkCoalesceTracker(t *testing.T) {
 	hashA := "fingerprint-a"
 	hashB := "fingerprint-b"
 
-	if tracker.shouldSkip(invKey, sinkName, gen, hashA, "", interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, gen, hashA, "", interval, now) {
 		t.Fatal("first export must not debounce")
 	}
 
-	tracker.record(invKey, sinkName, gen, hashA, "", now)
-	if !tracker.shouldSkip(invKey, sinkName, gen, hashA, "", interval, now) {
+	tracker.record(invKey, sinkName, sinkExportIdentity{}, gen, hashA, "", now)
+	if !tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, gen, hashA, "", interval, now) {
 		t.Fatal("identical payload within interval should debounce")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, gen, hashB, "", interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, gen, hashB, "", interval, now) {
 		t.Fatal("payload change must bypass debounce")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, gen+1, hashA, "", interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, gen+1, hashA, "", interval, now) {
 		t.Fatal("spec generation bump must bypass debounce")
 	}
 }
@@ -184,9 +185,9 @@ func TestKollectInventoryReconciler_exportDebounce_crdDefault(t *testing.T) {
 }
 
 // newPreviewDebounceReconciler builds a reconciler suitable for exercising
-// previewAllSinksDebounced (WB-02) without any sink objects: loadResolvedSink
-// failures fall back to the default interval, which is all the preview needs.
-func newPreviewDebounceReconciler(t *testing.T) *KollectInventoryReconciler {
+// previewAllSinksDebounced (WB-02) over a fake client holding objs. A binding whose
+// sink object is missing is never debounced by the preview (SDC-4).
+func newPreviewDebounceReconciler(t *testing.T, objs ...client.Object) *KollectInventoryReconciler {
 	t.Helper()
 
 	scheme := runtime.NewScheme()
@@ -195,9 +196,51 @@ func newPreviewDebounceReconciler(t *testing.T) *KollectInventoryReconciler {
 	}
 
 	return &KollectInventoryReconciler{
-		Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(),
 		Scheme: scheme,
 	}
+}
+
+// previewDatabaseSinks returns KollectDatabaseSink objects for the preview tests.
+func previewDatabaseSinks(namespace string, names ...string) []client.Object {
+	objs := make([]client.Object, 0, len(names))
+	for _, name := range names {
+		objs = append(objs, &kollectdevv1alpha1.KollectDatabaseSink{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name, Namespace: namespace, UID: types.UID("uid-" + name), Generation: 1,
+			},
+			Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+				Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
+				Postgres: &kollectdevv1alpha1.PostgresSpec{
+					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+					Table:       "inventory_items",
+				},
+			},
+		})
+	}
+
+	return objs
+}
+
+// previewRecordExport records a successful export for binding against the sink object the
+// reconciler's client resolves it to, as the export path does.
+func previewRecordExport(
+	t *testing.T,
+	rec *KollectInventoryReconciler,
+	inv *kollectdevv1alpha1.KollectInventory,
+	invKey string,
+	binding kollectdevv1alpha1.InventorySinkBinding,
+	checksum string,
+	now time.Time,
+) {
+	t.Helper()
+
+	resolved, err := loadResolvedSink(context.Background(), rec.Client, inv.Namespace, binding)
+	if err != nil {
+		t.Fatalf("loadResolvedSink(%s): %v", binding.Name, err)
+	}
+	rec.sinkCoalesce.record(invKey, sinkExportKey(binding), newSinkExportIdentity(inv.UID, resolved),
+		inv.Generation, checksum, "", now)
 }
 
 // WB-02: when every sink is debounced, reconcile short-circuits before
@@ -205,7 +248,7 @@ func newPreviewDebounceReconciler(t *testing.T) *KollectInventoryReconciler {
 func TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced(t *testing.T) {
 	t.Parallel()
 
-	rec := newPreviewDebounceReconciler(t)
+	rec := newPreviewDebounceReconciler(t, previewDatabaseSinks("default", "pg-a", "pg-b")...)
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default", Generation: 1},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
@@ -218,7 +261,7 @@ func TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced(t *tes
 	now := time.Now()
 	bindings := inventorySinkBindings(inv)
 	for _, binding := range bindings {
-		rec.sinkCoalesce.record(invKey, sinkExportKey(binding), inv.Generation, checksum, "", now)
+		previewRecordExport(t, rec, inv, invKey, binding, checksum, now)
 	}
 
 	outcome, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, invKey, checksum)
@@ -245,10 +288,34 @@ func TestKollectInventoryReconciler_previewAllSinksDebounced_oneSinkDue(t *testi
 	checksum := "fingerprint-a"
 	bindings := inventorySinkBindings(inv)
 	// Only the first sink has a fresh export recorded; the second is due.
-	rec.sinkCoalesce.record(invKey, sinkExportKey(bindings[0]), inv.Generation, checksum, "", time.Now())
+	rec.sinkCoalesce.record(invKey, sinkExportKey(bindings[0]), sinkExportIdentity{}, inv.Generation, checksum, "", time.Now())
 
 	if _, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, invKey, checksum); allDebounced {
 		t.Fatal("previewAllSinksDebounced = true, want false when a sink is due for export")
+	}
+}
+
+// SDC-4: a binding whose sink cannot be resolved is never counted as debounced, also on the
+// preview, even with a recorded export of the same payload.
+func TestKollectInventoryReconciler_previewAllSinksDebounced_unresolvedSink(t *testing.T) {
+	t.Parallel()
+
+	rec := newPreviewDebounceReconciler(t)
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default", Generation: 1, UID: "inv-uid"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("pg-gone"),
+		},
+	}
+
+	invKey := "default/team-inventory"
+	checksum := "fingerprint-a"
+	bindings := inventorySinkBindings(inv)
+	rec.sinkCoalesce.record(invKey, sinkExportKey(bindings[0]), newSinkExportIdentity(inv.UID, nil),
+		inv.Generation, checksum, "", time.Now())
+
+	if _, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, invKey, checksum); allDebounced {
+		t.Fatal("previewAllSinksDebounced = true, want false when a bound sink object does not exist")
 	}
 }
 

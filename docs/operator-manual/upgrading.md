@@ -422,6 +422,45 @@ See [Pipeline CLI troubleshooting](../guides/pipeline-cli.md#troubleshooting).
   that was `Ready` stayed `Ready=True` when one sink was waiting out its export interval and every
   other sink write failed. It now reports `Ready=False`, as `KollectInventory` already did. Alerts
   on `Ready` can fire where they did not before.
+- **A debounced sink now reports `Synced=True`.** When a sink's payload is unchanged and its
+  `exportMinInterval` has not elapsed, the operator skips the write ("debounces" the sink). Before,
+  a healthy inventory then showed the aggregate `Synced=False` with reason `PartiallySynced` and
+  a message such as `1 sink(s) debounced` or `1/2 sinks debounced`, and the sink's own entry in
+  `status.sinkExports[]` showed `Synced=False`, reason `Debounced`, with a `next export in …`
+  countdown. Now:
+    - The aggregate `Synced` of `KollectInventory` and `KollectClusterInventory` is `True`,
+      reason `Exported`, whenever no sink failed, with the message `N/N sink(s) up to date`
+      (for example `2/2 sink(s) up to date`). The same message replaces `exported to N sink(s)`
+      after a pass that exported every sink.
+    - A debounced sink's entry is `Synced=True`, reason `Debounced`, with a message that does
+      not change between reconciles: `payload unchanged since the last export; re-exported every
+      15m0s` (the effective interval), or `payload unchanged since the last export; exports only
+      on change (interval 0s)`.
+    - `PartiallySynced` now means only "some sinks exported, some failed". A failed sink still
+      sets the aggregate `Synced=False`, and its entry now reads `Synced=False` (`ExportFailed`
+      or `SpillRequired`) even when every sink failed.
+    - The `KollectClusterInventory` `ExportSucceeded` message is now
+      `exported N item(s); N/N sink(s) up to date` instead of `exported N item(s) to N sink(s)`,
+      and counts debounced sinks.
+    - A sink entry keeps `lastExportTime` and `lastChecksum` from its last successful export
+      across debounced and failed passes, instead of losing them.
+    - Editing a sink's spec, or deleting and recreating the sink or the inventory under the same
+      name, now re-exports on the next reconcile instead of waiting out the interval.
+    - When the status write after a successful export fails (for example on a conflict), the
+      next reconcile exports the same payload to that sink again, once per failed write, so the
+      sink's entry always records its latest export. Event sinks (Kafka, NATS) receive the
+      payload again in that case.
+    - The read API reports each sink from its own `status.sinkExports[]` entry: `debounced` for a
+      debounced sink, `ok` or `degraded` otherwise, and that sink's own `lastExportTime` (empty
+      if it never exported). Before, every sink showed the inventory-level status and time.
+
+  **Update alerts and scripts.** An alert on `Synced=False` or on reason `PartiallySynced` no
+  longer fires for a debounce, only for a failed sink; if you silenced it for debounces, you can
+  remove the silence. Anything that detected debouncing from the aggregate condition must read
+  the per-sink reason `Debounced` in `status.sinkExports[]` or the metric
+  `kollect_export_debounced_total` instead. Scripts that match the old messages (`sink(s)
+  debounced`, `sinks debounced`, `exported to N sink(s)`, `exported N item(s) to N sink(s)`,
+  `next export in`) must match the new ones above. `Ready`, `Degraded` and Events are unchanged.
 - **Helm value `mode` removed.** The chart no longer has a `mode` value. The values schema still
   accepts unknown keys, so a leftover `mode: single` is silently ignored; delete it from your
   values.

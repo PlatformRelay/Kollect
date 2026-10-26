@@ -260,6 +260,9 @@ func (r *KollectInventoryReconciler) applyInventoryExportOutcome(
 		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, outcome.ExportErr.Error())
 		recordWarning(r.Recorder, inv, reason, outcome.ExportErr.Error())
+		// SDC-3: every bound sink failed; store the per-sink entries so each reads Synced=False
+		// with its reason and keeps its last successful export record (SDC-5).
+		inv.Status.SinkExports = outcome.SinkExports
 
 		result, err := r.setInventoryDegraded(ctx, inv, itemCount, reason, outcome.ExportErr.Error())
 		if kollecterrors.IsTerminal(outcome.ExportErr) {
@@ -303,6 +306,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		binding      kollectdevv1alpha1.InventorySinkBinding
 		ref          kollectdevv1alpha1.InventorySinkRef
 		resolved     *sink.ResolvedSink
+		identity     sinkExportIdentity
 		interval     time.Duration
 		status       *kollectdevv1alpha1.InventorySinkExportStatus
 		parts        []export.EnvelopePartition
@@ -320,12 +324,12 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		exportKey := sinkExportKey(binding)
 		resolved, resolvedErr := loadResolvedSink(ctx, r.Client, inv.Namespace, binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
-		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
+		carryOverSinkExport(status, inv.Status.SinkExports, exportKey)
 		if resolvedErr != nil {
-			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, resolvedErr.Error())
-			outcome.addSinkFailure(exportKey, resolvedErr)
+			failSinkExport(&r.sinkCoalesce, &outcome, status, invKey, exportKey, inv.Generation, resolvedErr)
 			continue
 		}
+		identity := newSinkExportIdentity(inv.UID, resolved)
 
 		var sinkInterval *metav1.Duration
 		if resolved.ExportMinInterval != nil {
@@ -348,8 +352,8 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		}
 		parts, partitionErr := export.PartitionEnvelopes(items, meta, ceiling)
 		if partitionErr != nil {
-			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, partitionErr.Error())
-			outcome.addSinkFailure(exportKey, kollecterrors.Terminal(partitionErr))
+			failSinkExport(&r.sinkCoalesce, &outcome, status, invKey, exportKey, inv.Generation,
+				kollecterrors.Terminal(partitionErr))
 			continue
 		}
 
@@ -360,13 +364,10 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		if binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
 			sinkChecksum = export.PartitionsChecksum(parts)
 		}
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, interval, now) {
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, identity, inv.Generation, sinkChecksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Inc()
-			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
-				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
-					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
-					interval))
+			setSinkExportDebounced(status, inv.Generation, interval)
 			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue
@@ -375,7 +376,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		warnSoftCeilingExceeded(r.Recorder, inv, binding, parts)
 
 		jobs = append(jobs, sinkJob{
-			binding: binding, ref: ref, resolved: resolved, interval: interval,
+			binding: binding, ref: ref, resolved: resolved, identity: identity, interval: interval,
 			status: status, parts: parts, sinkChecksum: sinkChecksum,
 		})
 	}
@@ -437,13 +438,13 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			exportKey := sinkExportKey(job.binding)
 			if exportErr != nil {
 				log.Error(exportErr, "export failed", "sink", exportKey)
-				outcome.addSinkFailure(exportKey, exportErr)
-				setSinkExportSynced(job.status, inv.Generation, false, sinkExportFailureReason(exportErr), exportErr.Error())
+				failSinkExport(&r.sinkCoalesce, &outcome, job.status, invKey, exportKey, inv.Generation, exportErr)
 
 				return
 			}
 
-			r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, now)
+			r.sinkCoalesce.record(invKey, exportKey, job.identity, inv.Generation, sinkChecksum, requestedAt, now)
+			outcome.markExported(invKey, exportKey)
 			exportTime := metav1.Now()
 			job.status.LastExportTime = &exportTime
 			job.status.LastChecksum = sinkChecksum
@@ -485,22 +486,22 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 		ref := binding.Ref
 		exportKey := sinkExportKey(binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
-		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
-		interval := defaultInterval
-		if resolved, err := loadResolvedSink(ctx, r.Client, inv.Namespace, binding); err == nil {
-			var sinkInterval *metav1.Duration
-			if resolved.ExportMinInterval != nil {
-				sinkInterval = resolved.ExportMinInterval.ExportMinInterval
-			}
-			interval = validation.ResolveSinkExportInterval(ref, sinkInterval, defaultInterval, scopeFloor)
+		carryOverSinkExport(status, inv.Status.SinkExports, exportKey)
+		resolved, err := loadResolvedSink(ctx, r.Client, inv.Namespace, binding)
+		if err != nil {
+			// SDC-4: an unresolvable sink is never debounced; the full path reports the failure.
+			return perSinkExportOutcome{}, false
 		}
+		var sinkInterval *metav1.Duration
+		if resolved.ExportMinInterval != nil {
+			sinkInterval = resolved.ExportMinInterval.ExportMinInterval
+		}
+		interval := validation.ResolveSinkExportInterval(ref, sinkInterval, defaultInterval, scopeFloor)
+		identity := newSinkExportIdentity(inv.UID, resolved)
 
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, checksum, requestedAt, interval, now) {
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, identity, inv.Generation, checksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
-			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
-				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
-					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
-					interval))
+			setSinkExportDebounced(status, inv.Generation, interval)
 			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue
@@ -609,6 +610,7 @@ func (r *KollectInventoryReconciler) updateStatus(
 	}
 
 	if err := r.Status().Update(ctx, inv); err != nil {
+		forgetUnpersistedExports(&r.sinkCoalesce, outcome)
 		if apierrors.IsConflict(err) {
 			return ctrl.Result{RequeueAfter: conflictRequeueAfter}, nil
 		}

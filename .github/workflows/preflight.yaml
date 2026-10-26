@@ -48,6 +48,11 @@ jobs:
           bash hack/check-commit-identity.sh HEAD^1 HEAD^2
       - name: Lint Markdown
         run: task lint:markdown
+      # Strict OpenSpec validation with the CLI pinned in hack/tooling/openspec. It ran only in
+      # task check before, so a pin bump that made a check stricter (1.14.3 turned an overlong
+      # requirement from INFO into a WARNING, which --strict fails) went unseen by CI.
+      - name: Validate OpenSpec specs and changes
+        run: task spec:validate
       - name: Check go mod tidy
         run: |
           go mod tidy
