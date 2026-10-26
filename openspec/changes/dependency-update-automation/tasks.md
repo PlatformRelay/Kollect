@@ -12,7 +12,7 @@
 
 Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default the repo root; `--self-test` mutates copies). Each mutant is judged by its own clause's message, with one no-op control, following the guard-mutation rules (one mutant per clause, a simulated bot-bump control, no plausible next-release values as mutants). Workflow values are read parsed (yq), never from comments; a check over `run:` bodies reads the parsed strings.
 
-- [ ] 1.1 Write the guard with the workflow clauses, wire both modes into the `lint` job, and add it to CWS-6's enrolled list in `hack/test/ci_workflow_security_test.sh` (plain and `--self-test` both stay green there). Cases, each given / when / then, with the failure it exposes:
+- [x] 1.1 Write the guard with the workflow clauses, wire both modes into the `lint` job, and add it to CWS-6's enrolled list in `hack/test/ci_workflow_security_test.sh` (plain and `--self-test` both stay green there). Cases, each given / when / then, with the failure it exposes:
   - **T1 token:** given `renovate.yaml`, when the Renovate step's `token` is anything but exactly `${{ secrets.RENOVATE_TOKEN }}`, or any parsed value in the file contains `github.token` or `secrets.GITHUB_TOKEN`, then fail. Exposes a fallback that opens CI-less PRs (DUA-1)
   - **T2 fail closed:** when no step before the Renovate step has `env.RENOVATE_TOKEN` exactly `${{ secrets.RENOVATE_TOKEN }}`, no `if:` and no `continue-on-error:`, and a `run:` body that exits non-zero with a message naming `RENOVATE_TOKEN` when the variable is empty and zero when it is set (run under bash both ways; judged by exit status and message), then fail (DUA-1)
   - **T3 permissions:** when the workflow or job `permissions` is a string (`write-all`, `read-all`) or grants anything but `contents: read`, then fail (DUA-1)
@@ -23,7 +23,7 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
   - **T8 validator wiring:** when the `lint` job has no step whose parsed `run` is exactly `bash hack/ci/renovate-config-validate.sh`, or that step has `if:` or `continue-on-error:`, then fail (DUA-5)
   - **T9 no merge workflow:** when any parsed `run:` body or `with.script` under `.github/workflows/` contains `pulls.merge`, or `gh pr merge`, a `pulls/<number>/merge` API path or `enablePullRequestAutoMerge`, or any workflow has a `pull_request_target` trigger, then fail. Today's comment in `ci.yaml` that names `gh pr merge` must not count (DUA-8)
 
-  Record the red per case on today's tree: T1 to T8 red, T9 green (correct today). `lint` stays red until section 2. Evidence `evidence/1.1.md`
+  Record the red per case on today's tree: T1 to T8 red, T9 green (correct today). `lint` stays red until section 2. Evidence `evidence/1.1.md` — closed 2026-10-26, evidence: evidence/1.1.md
 - [ ] 1.2 Add the config, validator and docs clauses to the guard, and the stub `hack/ci/renovate-config-validate.sh [root]` (body: `echo "not implemented" >&2; exit 2`). Cases:
   - **T10 dashboard and presets:** when the top-level `extends` is not exactly `["config:recommended"]`, any other object at any depth in either file has an `extends` key (a preset nested in a `packageRules` entry, such as `:automergeAll`, enables automerge without a literal `automerge: true`), or `dependencyDashboard` is false, then fail. The exact list also refuses `:disableDependencyDashboard` and remote presets (DUA-4, DUA-7)
   - **T11 automerge scope:** over both `renovate.json` and `.github/renovate-config.json`, when the number of objects at any depth that have an `automerge` key with value `true` is not exactly 1, that object is not a `packageRules` entry of `renovate.json`, or its keys are not exactly `automerge`, `matchManagers` `["devcontainer","dockerfile"]` (sorted), `matchUpdateTypes` `["digest"]`, `rebaseWhen` `behind-base-branch` and optional `description`, then fail. Covers top-level, `patch`, `minor`, `digest`, `vulnerabilityAlerts`, `lockFileMaintenance` and per-manager blocks (DUA-7)
@@ -56,20 +56,20 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| DUA-1 | guard T1, T2, T3, T7 and their mutants | green on tree, each mutant red with its message | not-run | |
+| DUA-1 | guard T1, T2, T3, T7 and their mutants | green on tree, each mutant red with its message | partial: mutants red on their own messages (self-test green); tree red until 2.1 | `evidence/1.1.md` |
 | DUA-1 | dispatched run on `main` after merge | run succeeds under `RENOVATE_TOKEN` | post-merge | follow-up evidence PR |
-| DUA-2 | guard T4, T5 and mutants | as above | not-run | |
+| DUA-2 | guard T4, T5 and mutants | as above | partial: mutants pass; tree red until 2.1 | `evidence/1.1.md` |
 | DUA-2 | scheduled runs on `main` after merge, on a day other than Monday | several runs that day, `event=schedule` | post-merge | follow-up evidence PR |
-| DUA-3 | guard T6, T7, T14 and mutants; 0.4 (a), 2.4: image branch alone, `automerge` false, outside its window not created | as stated | partial: 0.4 (a) pass; pin 44.179.1 chosen | `evidence/0.4.md` (a), `evidence/0.5.md` |
+| DUA-3 | guard T6, T7, T14 and mutants; 0.4 (a), 2.4: image branch alone, `automerge` false, outside its window not created | as stated | partial: 0.4 (a) pass; pin 44.179.1 chosen; T6, T7 mutants pass, tree red until 2.1 | `evidence/0.4.md` (a), `evidence/0.5.md`, `evidence/1.1.md` |
 | DUA-3 | the first run on `main` pulls the digest reference | run log names `@sha256:` | post-merge | follow-up evidence PR |
 | DUA-4 | guard T10 and mutant | as above | not-run | |
 | DUA-4 | dashboard issue after the first run on `main` | open issue by the token's user | post-merge | follow-up evidence PR |
-| DUA-5 | guard T8, T16 and mutants; real validator run on the final config | as above; exit 0 | partial: validator argv settled, today's files exit 0 | `evidence/0.5.md` |
+| DUA-5 | guard T8, T16 and mutants; real validator run on the final config | as above; exit 0 | partial: validator argv settled, today's files exit 0; T8 mutants pass, tree red until 2.3 | `evidence/0.5.md`, `evidence/1.1.md` |
 | DUA-5 | `lint` on the PR head runs the validator | step green | not-run | |
 | DUA-7 | guard T10, T11, T13 and mutants; 0.4 (c), 2.4: only digest-only dockerfile/devcontainer branches carry `automerge` | as stated | partial: 0.4 (c) pass | `evidence/0.4.md` (c) |
 | DUA-7 | first digest-only PR after merge is merged by the bot after all checks green | merged, rebase | post-merge | follow-up evidence PR (needs an upstream digest) |
-| DUA-8 | guard T7, T9, T12, T13 and mutants; 0.4 (e) source evidence for no checks, red, pending and behind | as stated | partial: 0.4 (e) pass | `evidence/0.4.md` (e) |
+| DUA-8 | guard T7, T9, T12, T13 and mutants; 0.4 (e) source evidence for no checks, red, pending and behind | as stated | partial: 0.4 (e) pass; T7, T9 mutants pass, T9 green on tree | `evidence/0.4.md` (e), `evidence/1.1.md` |
 | DUA-9 | guard T15 and mutant; 0.4 (b), 2.4: `release.yaml`'s Helm input in the same branch as every `HELM_VERSION` (`renovate/helm`, or `renovate/major-helm` for a major) | as stated | partial: 0.4 (b) pass | `evidence/0.4.md` (b) |
 | DUA-10 | guard T17 and mutant; docs read against the config | as stated | not-run | |
-| all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | not-run | |
+| all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | partial: green after 1.1 | `evidence/1.1.md` |
 | all | independent review; CI on the PR head | APPROVE, green | not-run | |
