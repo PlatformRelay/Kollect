@@ -31,7 +31,7 @@ error naming the secret when it is empty, and its job SHALL grant `GITHUB_TOKEN`
 - **WHEN** the workflow references `github.token` or `secrets.GITHUB_TOKEN` for Renovate, or grants `GITHUB_TOKEN` any write permission
 - **THEN** the guard SHALL fail
 
-### Requirement: DUA-2 Daily runs, one at a time
+### Requirement: DUA-2 Runs at least daily, one at a time
 
 The Renovate workflow SHALL run on a schedule at least once a day and on `workflow_dispatch`, and
 SHALL declare one fixed `concurrency` group for every run with `cancel-in-progress: false`.
@@ -50,8 +50,8 @@ SHALL declare one fixed `concurrency` group for every run with `cancel-in-progre
 
 The Renovate step SHALL use `renovatebot/github-action` at v46.3.10 or later with a
 `renovate-image` of the form `ghcr.io/renovatebot/renovate:<version>@sha256:<64 hex>`.
-`renovate.json` SHALL group that image alone in a weekly schedule window and SHALL NOT auto-merge
-it. The workflow SHALL NOT set any `RENOVATE_*` override besides the repository name.
+`renovate.json` SHALL group that image alone in a weekly schedule window with
+`updateNotScheduled: false` and SHALL NOT auto-merge it. The workflow SHALL NOT set any `RENOVATE_*` override besides the repository name.
 
 #### Scenario: Pinned image
 
@@ -130,10 +130,10 @@ automerge. A branch holding any other update SHALL NOT auto-merge.
 
 ### Requirement: DUA-8 Bot merges wait for every check and rebase only
 
-`renovate.json` SHALL set `platformAutomerge: false`, `automergeType: "pr"`,
-`automergeStrategy: "rebase"` and `rebaseWhen: "behind-base-branch"`, and SHALL NOT set
-`ignoreTests`. No workflow SHALL merge bot PRs, and none SHALL combine `pull_request_target` with
-a merge command.
+`renovate.json` SHALL set `platformAutomerge: false`, `automergeType: "pr"` and
+`automergeStrategy: "rebase"`, SHALL set `rebaseWhen: "behind-base-branch"` on the automerge rule
+and `"conflicted"` at the top level, and SHALL NOT set `ignoreTests`. No workflow SHALL merge bot
+PRs or use `pull_request_target`.
 
 #### Scenario: Eligible PR all green
 
@@ -147,7 +147,7 @@ a merge command.
 
 #### Scenario: Setting weakened
 
-- **WHEN** `platformAutomerge` is true or absent, the strategy is not `rebase`, `ignoreTests` is set, or a workflow merges bot PRs
+- **WHEN** `platformAutomerge` is true or absent, the strategy is not `rebase`, `ignoreTests` is set, a workflow merges bot PRs, or a workflow uses `pull_request_target`
 - **THEN** the guard SHALL fail
 
 ### Requirement: DUA-9 Every Helm pin moves in one group

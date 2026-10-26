@@ -30,13 +30,14 @@ Re-measured on `main` @ `023313519` (2026-10-26):
 
 ## What Changes
 
-- `renovate.yaml`: runs daily with a `concurrency` group; uses `RENOVATE_TOKEN` only and fails
+- `renovate.yaml`: runs hourly with a `concurrency` group; uses `RENOVATE_TOKEN` only and fails
   before Renovate starts when it is missing; the job's `GITHUB_TOKEN` drops to `contents: read`;
   Renovate runs from a tag-plus-digest image reference that Renovate updates itself; the
   `RENOVATE_FORCE` override that dropped every schedule on a manual run is removed.
 - `renovate.json`: removes `:disableDependencyDashboard`; auto-merges only Docker image `digest`
   updates of the `dockerfile` and `devcontainer` managers, merged by Renovate after every check is
-  green, rebase only; puts the Renovate image in a weekly group of its own, never auto-merged; the
+  green, rebase only; rebases other bot PRs only on conflict; puts the Renovate image in a weekly
+  group of its own, never auto-merged; the
   Helm rule matches on `packageName`.
 - `hack/ci/renovate-config-validate.sh` runs `renovate-config-validator --strict` from the same
   image on `renovate.json` (repo mode) and `.github/renovate-config.json` (global mode) in the
