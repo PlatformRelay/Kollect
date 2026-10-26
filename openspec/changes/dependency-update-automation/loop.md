@@ -1,7 +1,7 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
-Next: L task loop, 0.4
+Next: L task loop, 1.1
 Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
@@ -39,11 +39,14 @@ Holistic run at B: not run yet.
 | R1 | 17 findings (`reviews/R-spec-set/verification.md`): T11 key set, automerge outside packageRules / presets / global config / env, dispatch `RENOVATE_FORCE` | 3 CRITICAL | A+B | fix (B-12 reject) | spec set, round 2 review | no |
 | R2 | 9 findings (`reviews/R-spec-set/round-2/verification.md`): nested presets, workflow-level env, `updateNotScheduled`, T13 baseline, mixed-branch fixture, hourly cron | 1 CRITICAL | A+B | fix | spec set, unreviewed (last round) | no |
 | 0 | public-text rule: docs task 3.1 runs in a normal task subagent | process | orchestrator | deviate | the section's content is fixed by DUA-10 and T15; the reviewer and the scrub gate check for private content | no |
+| L G0 | DUA-9 scenario names branch `renovate/helm`; a major Helm release lands in `renovate/major-helm` (same group, `separateMajorMinor`) | WARNING | A | defer | spec wording precision for stage B; 2.4 asserts both branch names | no |
+| L G0 | proposal assumptions "one automerge per run" (job restarts once) and "from v46.3.10 on" (present from v46.3.4) are imprecise, not false | NIT | author, A agrees | record | `evidence/0.4.md` *Assumption check* | no |
 
 ## Tasks
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
+| G0 (0.4, 0.5) | CLOSED | reviewer A, 1 round, REQUEST_CHANGES (wording/evidence only, fixed); paid leg no | none; decision for B: DUA-9 scenario names `renovate/helm`, a major Helm release lands in `renovate/major-helm` (`evidence/0.4.md` *Observations*). Pin for 2.1: `ghcr.io/renovatebot/renovate:44.179.1@sha256:f30ad41a…` (`evidence/0.5.md`) |
 
 ## Known red
 
@@ -75,3 +78,7 @@ Carried over from earlier changes:
 - Keep `mise.toml` out of a scratch tree that runs a guard: mise refuses the untrusted config (change 5, 9)
 - In zsh an unmatched glob aborts the `&&` chain; run loops and globs under `bash` (change 7, 8)
 - Renovate grouping resolves only in `lookup` mode; `extract` shows dependencies, not branches (change 5)
+- `--platform=local` forces `lookup` whatever `RENOVATE_DRY_RUN` says, so schedule, status and merge decisions never run locally; the resolved branch configs (`automerge`, `schedule`, `rebaseWhen`) are only in the trace-level `branches` record, and `isScheduledNow` from the same package judges a window (G0)
+- A single-update group resolves `groupName` to null at branch level; read the branch name or the trace `generateBranchConfig` input for the group (G0)
+- The mise `jq` shim refuses inside a scratch tree with `mise.toml` even when no guard runs: call `/usr/bin/jq` there; and zsh does not word-split `$var`, so loops over flag sets go in a bash script (G0)
+- A trace-level Renovate log is too large for one Node string and holds non-JSON lines: pre-filter with `jq -R 'fromjson? // empty'` (G0)
