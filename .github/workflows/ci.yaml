@@ -590,6 +590,12 @@ jobs:
         run: bash hack/test/renovate_policy_test.sh
       - name: Verify the Renovate policy test can still fail (DUA-1, DUA-2, DUA-3, DUA-5, DUA-7, DUA-8)
         run: bash hack/test/renovate_policy_test.sh --self-test
+      # DUA-5: renovate-config-validator --strict from the digest-pinned renovate-image of
+      # renovate.yaml, renovate.json as repo config and .github/renovate-config.json as global
+      # config, no network. Unconditional: the guard above (T8) refuses an if: or
+      # continue-on-error: here. Needs yq (installed above) and the runner's docker.
+      - name: Validate the Renovate config (DUA-5)
+        run: bash hack/ci/renovate-config-validate.sh
       # CFR-1 to CFR-7 (openspec change ci-failure-reporting): the CI failure issue body, the
       # reporter's decisions against a fake gh, and the ci-failure-report.yaml wiring. Plain and
       # --self-test as separate steps; the test checks ci.yaml runs it in both modes, and CWS-6
