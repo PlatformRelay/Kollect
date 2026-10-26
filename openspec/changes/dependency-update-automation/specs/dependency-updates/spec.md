@@ -34,7 +34,7 @@ error naming the secret when it is empty, and its job SHALL grant `GITHUB_TOKEN`
 ### Requirement: DUA-2 Daily runs, one at a time
 
 The Renovate workflow SHALL run on a schedule at least once a day and on `workflow_dispatch`, and
-SHALL declare a `concurrency` group with `cancel-in-progress: false`.
+SHALL declare one fixed `concurrency` group for every run with `cancel-in-progress: false`.
 
 #### Scenario: Daily schedule
 
@@ -50,7 +50,8 @@ SHALL declare a `concurrency` group with `cancel-in-progress: false`.
 
 The Renovate step SHALL use `renovatebot/github-action` at v46.3.10 or later with a
 `renovate-image` of the form `ghcr.io/renovatebot/renovate:<version>@sha256:<64 hex>`.
-`renovate.json` SHALL group that image alone on a weekly schedule and SHALL NOT auto-merge it.
+`renovate.json` SHALL group that image alone in a weekly schedule window and SHALL NOT auto-merge
+it. The workflow SHALL NOT set any `RENOVATE_*` override besides the repository name.
 
 #### Scenario: Pinned image
 
@@ -65,7 +66,7 @@ The Renovate step SHALL use `renovatebot/github-action` at v46.3.10 or later wit
 #### Scenario: Image bump PR
 
 - **WHEN** Renovate proposes a new Renovate image
-- **THEN** it opens its own PR at most weekly, and that PR is not auto-merged
+- **THEN** it opens or updates its own PR only inside the weekly window, also on a manual run, and that PR is not auto-merged
 
 ### Requirement: DUA-4 The dependency dashboard is on
 
@@ -87,8 +88,8 @@ errored updates.
 
 The required `lint` job SHALL run `hack/ci/renovate-config-validate.sh`. The script SHALL take the
 image reference from `renovate.yaml`, SHALL refuse one without a digest, and SHALL run
-`renovate-config-validator --strict` from that image on `renovate.json` and
-`.github/renovate-config.json`, failing when the validator does.
+`renovate-config-validator --strict` from that image on `renovate.json` as repo config and on
+`.github/renovate-config.json` as global config, failing when either call fails.
 
 #### Scenario: Valid config
 
@@ -107,10 +108,10 @@ image reference from `renovate.yaml`, SHALL refuse one without a digest, and SHA
 
 ### Requirement: DUA-7 Only Docker image digests auto-merge
 
-Exactly one `packageRules` entry SHALL set `automerge: true`. It SHALL match only `matchManagers`
-`dockerfile` and `devcontainer` and `matchUpdateTypes` `digest`. No other rule, top-level
-setting or `extends` preset SHALL enable automerge. A branch holding any other update SHALL NOT
-auto-merge.
+Across both config files exactly one object SHALL set `automerge: true`: a `packageRules` entry
+of `renovate.json` matching only `matchManagers` `dockerfile` and `devcontainer` and
+`matchUpdateTypes` `digest`. No other rule, block, preset or environment override SHALL enable
+automerge. A branch holding any other update SHALL NOT auto-merge.
 
 #### Scenario: Base image digest bump
 
@@ -124,7 +125,7 @@ auto-merge.
 
 #### Scenario: Scope widened
 
-- **WHEN** a second rule sets `automerge: true`, the automerge rule gains a manager or update type, or an automerge preset or top-level `automerge` is added
+- **WHEN** a second object at any depth sets `automerge: true`, the automerge rule gains a manager or update type, `extends` gains a preset, or a `RENOVATE_*` override is added
 - **THEN** the guard SHALL fail
 
 ### Requirement: DUA-8 Bot merges wait for every check and rebase only

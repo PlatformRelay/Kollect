@@ -1,16 +1,16 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
-Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two-model duo
-Next: R spec-set review
-Budget: Claude review legs uncapped (operator goal 2026-10-16); estimate R 1, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · decisions by model alignment, logged in the maintainer's decision record
+Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
+Next: R round 2
+Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
 
 ## Stages
 
-- [x] 0 orient — re-measured against `origin/main` @ `023313519` (2026-10-26): ruleset, secrets (names only), Renovate run history and log, renovate.json, Renovate 44.167.7 source (github-actions known actions), action `src/docker.ts` at v46.3.2 and v46.3.10. Auto-merge policy decided by model alignment: D (digest-only), pending operator validation
+- [x] 0 orient — re-measured against `origin/main` @ `023313519` (2026-10-26): ruleset, secrets (names only), Renovate run history and log, renovate.json, Renovate 44.167.7 source (github-actions known actions), action `src/docker.ts` at v46.3.2 and v46.3.10. Auto-merge policy decided by a delegated three-leg vote: D (digest-only), pending operator validation
 - [x] P spec set — rewritten for the self-hosted design (OpenSpec change; no Spec Kit plan step)
-- [ ] R spec-set review
+- [ ] R spec-set review — round 1 (abaea4694): reviewer A BLOCK, reviewer B BLOCK; 3 CRITICAL, all mechanical and agreed, fixed (verification.md); round 2 pending
 - [ ] L task loop
 - [ ] B branch review
 - [ ] Hand-off
@@ -33,14 +33,15 @@ Holistic run at B: not run yet.
 
 ## Triage
 
-| Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
+| Stage | Finding (one line) | Sev | Raised by | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
 | 0 | auto-merge policy: A none / B digest + aged Go patch / C native / D digest only | decision | leg 1 A, leg 2 D, tiebreak D | fix (D) | spec DUA-7, design | pending operator validation |
+| R1 | 17 findings (`reviews/R-spec-set/verification.md`): T11 key set, automerge outside packageRules / presets / global config / env, dispatch `RENOVATE_FORCE` | 3 CRITICAL | A+B | fix (B-12 reject) | spec set, round 2 review | no |
 | 0 | public-text rule: docs task 3.1 runs in a normal task subagent | process | orchestrator | deviate | the section's content is fixed by DUA-10 and T15; the reviewer and the scrub gate check for private content | no |
 
 ## Tasks
 
-| Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
+| Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
 
 ## Known red

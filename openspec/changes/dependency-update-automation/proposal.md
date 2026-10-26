@@ -32,13 +32,15 @@ Re-measured on `main` @ `023313519` (2026-10-26):
 
 - `renovate.yaml`: runs daily with a `concurrency` group; uses `RENOVATE_TOKEN` only and fails
   before Renovate starts when it is missing; the job's `GITHUB_TOKEN` drops to `contents: read`;
-  Renovate runs from a tag-plus-digest image reference that Renovate updates itself.
+  Renovate runs from a tag-plus-digest image reference that Renovate updates itself; the
+  `RENOVATE_FORCE` override that dropped every schedule on a manual run is removed.
 - `renovate.json`: removes `:disableDependencyDashboard`; auto-merges only Docker image `digest`
   updates of the `dockerfile` and `devcontainer` managers, merged by Renovate after every check is
   green, rebase only; puts the Renovate image in a weekly group of its own, never auto-merged; the
   Helm rule matches on `packageName`.
 - `hack/ci/renovate-config-validate.sh` runs `renovate-config-validator --strict` from the same
-  image on both config files in the required `lint` job.
+  image on `renovate.json` (repo mode) and `.github/renovate-config.json` (global mode) in the
+  required `lint` job.
 - `hack/test/renovate_policy_test.sh` (plain and `--self-test`, both in `lint`) guards all of it.
 - `docs/development/tooling-setup.md` gets a maintainer section on how the bot works.
 
@@ -88,15 +90,16 @@ Each item is believed until the task named for it records a probe.
   only when every status and check run on the head SHA is green. It treats a PR with no checks as
   pending, not green. It rebases a branch that is behind before merging it. It ends the run after
   one automerge. Sources: Renovate docs "automerge", "platformAutomerge", "rebaseWhen". Probe:
-  task 2.1.
+  task 0.4 (e), from the pinned Renovate's source.
 - For a branch, `automerge` holds only when every upgrade in it is allowed to automerge. So a
-  `go toolchain` group PR that also moves the `go` directive is not merged. Probe: task 2.1.
+  `go toolchain` group PR that also moves the `go` directive is not merged. Probe: task 0.4 (c), (e).
 - Renovate's `github-actions` manager extracts `renovatebot/github-action`'s `renovate-image`
   input as a Docker dependency, with its tag and digest (Renovate 44.167.7,
   `known-actions/docker-dynamic.js`). The action uses a `renovate-image` that holds a `:` as the
   whole image reference from v46.3.10 on; v46.3.2, pinned today, does not (action `src/docker.ts`
-  at both tags). Probe: task 2.1.
+  at both tags). Probe: task 0.4 (a), (d).
 - `renovate-config-validator` ships in the Renovate image and `--strict` fails on a config that
-  needs migration. Probe: task 2.2.
+  needs migration. It validates files named on the command line as global config unless
+  `--no-global` is given (Renovate 44.167.7 `config-validator.js`). Probe: task 0.5.
 - The dependency dashboard needs the token to write issues. The token is a maintainer token with
   admin rights; the first dashboard issue proves it. Post-merge row.
