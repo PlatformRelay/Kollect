@@ -19,7 +19,8 @@
 #                    renovate-image, and no with: key besides configurationFile, token and
 #                    renovate-image (DUA-3)
 #   T7  environment  the only RENOVATE_* keys are RENOVATE_REPOSITORIES (exactly
-#                    github.repository) and the token check step's RENOVATE_TOKEN, and nothing
+#                    github.repository) and the token check step's RENOVATE_TOKEN, no key is
+#                    NODE_OPTIONS, GITHUB_COM_TOKEN or ends in _PROXY/_proxy, and nothing
 #                    names GITHUB_ENV (DUA-3, DUA-7, DUA-8)
 #   T8  validator    the lint job of ci.yaml runs exactly `bash hack/ci/renovate-config-validate.sh`
 #                    with no if:/continue-on-error: (DUA-5)
@@ -412,6 +413,18 @@ t7_environment() {
     bad T7 "'${p}' sets a RENOVATE_* variable -- only RENOVATE_REPOSITORIES and the RENOVATE_TOKEN of the token check step (before the Renovate step) are allowed; an override such as RENOVATE_FORCE can drop the schedule or force automerge"
     ok=0
   done <<<"${rows}"
+  # The action passes these into the Renovate container next to the token (its env-regex default
+  # at v46.3.10): NODE_OPTIONS loads code into the pinned image, a proxy sees the token's traffic,
+  # GITHUB_COM_TOKEN is a second credential. Refused at every level, like RENOVATE_*.
+  if ! rows="$(yq eval '.. | select((key | tag) == "!!str" and (key | test("(?i)^(node_options|github_com_token)$|_proxy$"))) | path | join(".")' "${RW}" 2>&1)"; then
+    bad T7 "the forwarded keys of renovate.yaml cannot be read (${rows%%$'\n'*})"
+    return 0
+  fi
+  while IFS= read -r p; do
+    [[ -n "${p}" ]] || continue
+    bad T7 "'${p}' sets ${p##*.} -- the Renovate action forwards it into the container next to the token (NODE_OPTIONS loads code, a proxy sees the token's traffic, GITHUB_COM_TOKEN is a second credential)"
+    ok=0
+  done <<<"${rows}"
   while IFS= read -r p; do
     [[ -n "${p}" ]] || continue
     bad T7 "'${p}' is an env: that is not a mapping -- its RENOVATE_* keys cannot be checked"
@@ -421,7 +434,7 @@ t7_environment() {
     bad T7 "renovate.yaml names GITHUB_ENV in a parsed value -- a step can set RENOVATE_* variables for later steps through it"
     ok=0
   fi
-  [[ "${ok}" == 0 ]] || good T7 "no RENOVATE_* override besides the repository name and the token check"
+  [[ "${ok}" == 0 ]] || good T7 "no RENOVATE_* override besides the repository name and the token check, no forwarded NODE_OPTIONS, GITHUB_COM_TOKEN or proxy"
 }
 
 # --- T8 validator wiring -----------------------------------------------------------------
@@ -1252,6 +1265,11 @@ m_t7_other_repo() { ymut "${WF}" '.jobs.renovate.env.RENOVATE_REPOSITORIES = "ot
 m_t7_second_token_step() { V='${{ secrets.RENOVATE_TOKEN }}' B='echo "using RENOVATE_TOKEN"' ymut "${WF}" '.jobs.renovate.steps = [.jobs.renovate.steps[0], {"name": "extra", "env": {"RENOVATE_TOKEN": strenv(V)}, "run": strenv(B)}, .jobs.renovate.steps[1], .jobs.renovate.steps[2]]' '.jobs.renovate.steps[1].env | has("RENOVATE_TOKEN")'; }
 m_t7_token_after() { V='${{ secrets.RENOVATE_TOKEN }}' ymut "${WF}" '.jobs.renovate.steps += [{"name": "after", "env": {"RENOVATE_TOKEN": strenv(V)}, "run": "echo done"}]' '.jobs.renovate.steps[3].env | has("RENOVATE_TOKEN")'; }
 m_t7_github_env() { V='echo "RENOVATE_FORCE={}" >> "$GITHUB_ENV"' ymut "${WF}" '.jobs.renovate.steps = [.jobs.renovate.steps[0], {"name": "export", "run": strenv(V)}, .jobs.renovate.steps[1], .jobs.renovate.steps[2]]' '.jobs.renovate.steps[1].run | test("GITHUB_ENV")'; }
+# The action forwards NODE_OPTIONS, GITHUB_COM_TOKEN and the proxy variables into the Renovate
+# container next to the token (its env-regex default), so T7 refuses them at every level.
+m_t7_node_options() { V='--require ./x.js' ymut "${WF}" '.env.NODE_OPTIONS = strenv(V)' '.env | has("NODE_OPTIONS")'; }
+m_t7_github_com_token() { V='${{ secrets.OTHER }}' ymut "${WF}" '.jobs.renovate.env.GITHUB_COM_TOKEN = strenv(V)' '.jobs.renovate.env | has("GITHUB_COM_TOKEN")'; }
+m_t7_step_proxy() { V='http://proxy.invalid:3128' ymut "${WF}" "${RSF}.env.https_proxy = strenv(V)" "${RSF}.env | has(\"https_proxy\")"; }
 m_t7_env_expression() { V='${{ fromJSON(vars.RENOVATE_ENV) }}' ymut "${WF}" '.jobs.renovate.env = strenv(V)' '.jobs.renovate.env | tag == "!!str"'; }
 m_t8_ci_missing() { rm -f "${FX}/${CIF}"; [[ ! -e "${FX}/${CIF}" ]] || die "ci.yaml still there"; }
 m_t8_unwired() { ymut "${CIF}" 'del(.jobs.lint.steps[] | select((.run // "") | test("renovate-config-validate")))' '[.jobs.lint.steps[] | select((.run // "") | test("renovate-config-validate"))] | length == 0'; }
@@ -1508,6 +1526,9 @@ c_shell_bash() { ymut "${WF}" '.jobs.renovate.steps[0].shell = "bash"' '.jobs.re
 # An hourly cron with an */N hour, and a second, weekly entry, still fire every day.
 c_hour_step() { ymut "${WF}" '.["on"].schedule = [{"cron": "5 */6 * * *"}, {"cron": "0 4 * * 1"}]' '.["on"].schedule | length == 2'; }
 
+# NO_COLOR is forwarded too and harmless; a key that only contains PROXY is not a proxy (T7).
+c_env_neighbours() { ymut "${WF}" '.jobs.renovate.env.NO_COLOR = "1" | .jobs.renovate.steps[0].env.PROXY_NOTE = "none"' '.jobs.renovate.env | has("NO_COLOR")'; }
+
 # The automerge rule's description is optional (T11).
 c_no_description() { jmut "${RJF}" 'del(.packageRules[4].description)' '.packageRules[4] | has("description") | not'; }
 # automerge: false anywhere is not an automerge (T11), and the image rule already sets it.
@@ -1569,6 +1590,9 @@ MUTANTS=(
   "T7|m_t7_token_after|'jobs\.renovate\.steps\.3\.env\.RENOVATE_TOKEN' sets a RENOVATE_"
   "T7|m_t7_github_env|names GITHUB_ENV"
   "T7|m_t7_env_expression|is an env: that is not a mapping"
+  "T7|m_t7_node_options|'env\.NODE_OPTIONS' sets NODE_OPTIONS"
+  "T7|m_t7_github_com_token|'jobs\.renovate\.env\.GITHUB_COM_TOKEN' sets GITHUB_COM_TOKEN"
+  "T7|m_t7_step_proxy|'jobs\.renovate\.steps\.2\.env\.https_proxy' sets https_proxy"
   "T8|m_t8_ci_missing|ci\.yaml is missing"
   "T8|m_t8_unwired|has no step whose run is exactly"
   "T8|m_t8_other_job|has no step whose run is exactly"
@@ -1671,7 +1695,7 @@ MUTANTS=(
   "T17|m_t17_release_word|does not name the release review \(/release/\)"
   "T17|m_t17_moved|does not name gh workflow disable"
 )
-CONTROLS=(c_noop c_bot_bump c_comment_decoy c_hour_step c_shell_bash
+CONTROLS=(c_noop c_bot_bump c_comment_decoy c_hour_step c_shell_bash c_env_neighbours
   c_no_description c_automerge_false c_dashboard_true c_image_other_day c_docs_fence
   c_validator_mount_prefix c_validator_default_entrypoint)
 
