@@ -196,7 +196,9 @@ The exception is a group PR whose first update in Renovate's order is a Dockerfi
 devcontainer image digest: it takes that update's setting, so Renovate rebases it whenever it
 falls behind `main`, but never merges it. Rebase a bot PR before merging with
 `gh pr update-branch --rebase <number>`; the rebase checkbox in the PR body works too, but only
-on the next hourly run.
+on the next hourly run. Adding a label other than `dependencies` to a bot PR restarts its E2E
+extended run and cancels the one in flight; the cancelled checks stay on that head, and Renovate
+holds an auto-merge PR until the next rebase gives it a new head.
 
 **Pausing.** `gh workflow disable renovate.yaml` stops the schedule;
 `gh workflow enable renovate.yaml` turns it back on.
