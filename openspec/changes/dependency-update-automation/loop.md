@@ -1,7 +1,7 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
-Next: B branch review
+Next: B fixes 5.1 to 5.4, then hand-off
 Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
@@ -11,8 +11,8 @@ Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renova
 - [x] 0 orient — re-measured against `origin/main` @ `023313519` (2026-10-26): ruleset, secrets (names only), Renovate run history and log, renovate.json, Renovate 44.167.7 source (github-actions known actions), action `src/docker.ts` at v46.3.2 and v46.3.10. Auto-merge policy decided by a delegated three-leg vote: D (digest-only), pending operator validation
 - [x] P spec set — rewritten for the self-hosted design (OpenSpec change; no Spec Kit plan step)
 - [x] R spec-set review — round 1 (abaea4694): reviewer A BLOCK, reviewer B BLOCK; 3 CRITICAL, all mechanical and agreed, fixed (verification.md); round 2 (5e2f421c2, last): reviewer A BLOCK (1 CRITICAL: nested presets), reviewer B CONCERNS; all 9 findings verified and fixed unreviewed (round-2/verification.md); stage B re-checks them. No CRITICAL open
-- [ ] L task loop
-- [ ] B branch review
+- [x] L task loop — G0 to G4 closed (see *Tasks*)
+- [ ] B branch review — rebased on `e95e8005d`; holistic `task check`: 4 environment reds, all green after fixing the environment (verification.md); round 1 (adccaeae2): reviewer A CONCERNS, reviewer B spec CONCERNS, fitness CONCERNS; no CRITICAL; fixes 5.1 to 5.4
 - [ ] Hand-off
 
 ## Fitness functions
@@ -29,7 +29,7 @@ Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renova
 | Evidence is Markdown | `bash hack/test/openspec_evidence_markdown_only_test.sh` and `--self-test` | triggered | green | per task |
 | Full local gate | `task check` | holistic | green on base | at B |
 
-Holistic run at B: not run yet.
+Holistic run at B: `task check` on adccaeae2, 2026-10-28: red only on gitleaks-detect (ignored docs-build cache), demo-04 kustomize (mise kubectl shim), two dist OLM guards (operator-sdk absent); each green after fixing the environment.
 
 ## Triage
 

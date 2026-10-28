@@ -52,6 +52,13 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 - [ ] 4.1 Merge with the `post-merge` rows open; archive in a follow-up evidence PR once they pass
 - [ ] 4.2 (operator) Remove the hosted Renovate App from the repository (not a gate for the archive; listed so it is not lost)
 
+## 5. Stage B fixes (round 1, `reviews/B-branch/round-1/verification.md`)
+
+- [ ] 5.1 Mixed group branches (all three legs): a group whose first sorted upgrade is a digest inherits `rebaseWhen: behind-base-branch` and is rebased when behind without ever auto-merging (CI cost, no merge). Keep the T11/T12 contract (`auto` would rebase every PR: Renovate's `getBranchForceRebase` reads rulesets). Correct the statements in `design.md`, the automerge rule's `description` in `renovate.json` and the "Rebasing a bot PR" text in `docs/development/tooling-setup.md` to name the exception; add to design.md *Risks* that the required `lint` job now pulls the pinned Renovate image from ghcr.io on every PR (an outage reds `lint`; the digest pin allows a cache later)
+- [ ] 5.2 T7 also refuses `NODE_OPTIONS`, `GITHUB_COM_TOKEN` and any `*_PROXY`/`*_proxy` key at workflow, job and step level of `renovate.yaml` (the action forwards them into the container next to the token), with one mutant judged by T7's message
+- [ ] 5.3 Local parity: `task check` runs `hack/ci/renovate-config-validate.sh` when a Docker daemon is reachable and otherwise says it skipped it, or lists it in `hack/check.sh`'s exclusion table, whichever `hack/test/task_check_test.sh` (both modes) accepts
+- [ ] 5.4 Docs: `CONTRIBUTING.md`'s merge policy says rebase only (the ruleset allows nothing else) and names the Renovate token as a bypass actor next to changelog-sync; `docs/development/tooling-setup.md` adds to the image-bump review: run the validator and check that the bump changes no preset that enables automerge (built-in presets resolve inside the image, no guard reads them); spec DUA-3 names the token check step's `RENOVATE_TOKEN` as the second allowed variable
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
