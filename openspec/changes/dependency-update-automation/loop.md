@@ -1,7 +1,7 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
-Next: hand-off (5.1 to 5.4 closed)
+Next: hand-off — ready PR, all checks green, rebase-merge; post-merge rows; archive in a follow-up PR
 Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
@@ -12,7 +12,7 @@ Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renova
 - [x] P spec set — rewritten for the self-hosted design (OpenSpec change; no Spec Kit plan step)
 - [x] R spec-set review — round 1 (abaea4694): reviewer A BLOCK, reviewer B BLOCK; 3 CRITICAL, all mechanical and agreed, fixed (verification.md); round 2 (5e2f421c2, last): reviewer A BLOCK (1 CRITICAL: nested presets), reviewer B CONCERNS; all 9 findings verified and fixed unreviewed (round-2/verification.md); stage B re-checks them. No CRITICAL open
 - [x] L task loop — G0 to G4 closed (see *Tasks*)
-- [ ] B branch review — rebased on `e95e8005d`; holistic `task check`: 4 environment reds, all green after fixing the environment (verification.md); round 1 (adccaeae2): reviewer A CONCERNS, reviewer B spec CONCERNS, fitness CONCERNS; no CRITICAL; fixes 5.1 to 5.4
+- [x] B branch review — rebased on `e95e8005d`; holistic `task check`: 4 environment reds, all green after fixing the environment (verification.md); round 1 (adccaeae2): reviewer A CONCERNS, reviewer B spec CONCERNS, fitness CONCERNS; no CRITICAL; fixes 5.1 to 5.4 closed in G5 (reviewed, both legs, 2 rounds); no round 2 of B (no accepted CRITICAL). `AGENTS.md` gate list gained the `renovate-config` line (PAC-1 sync, accepted)
 - [ ] Hand-off
 
 ## Fitness functions
