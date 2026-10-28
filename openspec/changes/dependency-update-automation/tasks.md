@@ -45,7 +45,7 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 
 ## 3. Docs
 
-- [ ] 3.1 Rewrite the Renovate section of `docs/development/tooling-setup.md` and its maintainer table row (DUA-10); align the Renovate line in `docs/security/sca-remediation-policy.md` and `SECURITY.md` if they contradict; T17 green; `task lint:markdown`, and `task docs:verify` (red locally only from an untracked `ui/`: confirm against a stash before blaming the change)
+- [x] 3.1 Rewrite the Renovate section of `docs/development/tooling-setup.md` and its maintainer table row (DUA-10); align the Renovate line in `docs/security/sca-remediation-policy.md` and `SECURITY.md` if they contradict; T17 green; `task lint:markdown`, and `task docs:verify` (red locally only from an untracked `ui/`: confirm against a stash before blaming the change) — closed 2026-10-28, evidence: evidence/3.1.md
 
 ## 4. Land
 
@@ -65,11 +65,11 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 | DUA-4 | guard T10 and mutant | as above | pass: T10 green on the tree (2.2); mutants pass | `evidence/1.2.md`, `evidence/2.1.md` |
 | DUA-4 | dashboard issue after the first run on `main` | open issue by the token's user | post-merge | follow-up evidence PR |
 | DUA-5 | guard T8, T16 and mutants; real validator run on the final config | as above; exit 0 | pass: T8, T16 green on the tree (2.3), mutants pass; the real validator exits 0 on the final config and 1 on an unknown option, a needed migration and a digest-less image | `evidence/0.5.md`, `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md` |
-| DUA-5 | `lint` on the PR head runs the validator | step green | not-run: the step follows the guard's plain step, which stays red on T17 until 3.1, so it first runs on a head with 3.1 | `evidence/2.1.md` *Independent review* |
+| DUA-5 | `lint` on the PR head runs the validator | step green | not-run: the guard's plain step is green since 3.1, so the step first runs on the PR head | `evidence/2.1.md` *Independent review* |
 | DUA-7 | guard T10, T11, T13 and mutants; 0.4 (c), 2.4: only digest-only dockerfile/devcontainer branches carry `automerge` | as stated | pass: T10, T11, T13 green on the tree, mutants pass; 0.4 (c) and 2.4 (c) pass | `evidence/0.4.md` (c), `evidence/1.2.md`, `evidence/2.1.md`, `evidence/2.4.md` (c) |
 | DUA-7 | first digest-only PR after merge is merged by the bot after all checks green | merged, rebase | post-merge | follow-up evidence PR (needs an upstream digest) |
 | DUA-8 | guard T7, T9, T12, T13 and mutants; 0.4 (e) source evidence for no checks, red, pending and behind | as stated | pass: T7, T9, T12, T13 green on the tree, mutants pass; 0.4 (e) pass | `evidence/0.4.md` (e), `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md` |
 | DUA-9 | guard T15 and mutant; 0.4 (b), 2.4: `release.yaml`'s Helm input in the same branch as every `HELM_VERSION` (`renovate/helm`, or `renovate/major-helm` for a major) | as stated | pass: T15 green on the tree (2.2), mutants pass; 0.4 (b) and 2.4 (b) pass (`release.yaml` and every `HELM_VERSION` site in `renovate/helm` and in `renovate/major-helm`) | `evidence/0.4.md` (b), `evidence/1.2.md`, `evidence/2.1.md`, `evidence/2.4.md` (b) |
-| DUA-10 | guard T17 and mutant; docs read against the config | as stated | partial: T17 mutants pass; tree red until 3.1 | `evidence/1.2.md` |
+| DUA-10 | guard T17 and mutant; docs read against the config | as stated | pass: T17 green on the tree (3.1), mutants pass; each statement read against `renovate.yaml`, `renovate.json` and the global config, reviewer A agrees | `evidence/1.2.md`, `evidence/3.1.md` |
 | all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | partial: green after 1.1, 1.2 and section 2 (tool-pins self-test: see `evidence/2.1.md` *FINAL*) | `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md` |
 | all | independent review; CI on the PR head | APPROVE, green | not-run | |
