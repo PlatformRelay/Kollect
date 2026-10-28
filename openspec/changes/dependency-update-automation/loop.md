@@ -1,7 +1,7 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
-Next: B fixes 5.1 to 5.4, then hand-off
+Next: hand-off (5.1 to 5.4 closed)
 Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
@@ -50,12 +50,16 @@ Holistic run at B: `task check` on adccaeae2, 2026-10-28: red only on gitleaks-d
 | L G4 | `docs/security/sca-remediation-policy.md` said `vulncheck` and `lint` are not required checks | P2 | A | fix | `4dca03ca8` | no |
 | L G4 | `CONTRIBUTING.md:139` allows squash merges; the ruleset allows rebase only | NOTE | author | defer | stage B | no |
 | L G3 | a mixed group branch can inherit `rebaseWhen: behind-base-branch` from a digest upgrade that sorts first (`generate.js:217-229`): rebased when behind, never merged | NOTE | B | record | `evidence/2.4.md` *Observations*; cost only, no requirement; for stage B | no |
+| L G5 | design.md *Hourly* and *Risks* say "such a digest" / "an image digest" where only Dockerfile and devcontainer digests carry the setting | NOTE | B | defer | hand-off (wording; after the last round) | no |
+| L G5 | `AGENTS.md`'s `lint` bullet omits the validator step | NOTE | B | defer | hand-off (pre-existing, unguarded) | no |
+| L G5 | `docker info` in `hack/check.sh` has no timeout | NOTE | B | defer | hand-off (slow skip, never a wrong result) | no |
 | L G0 | proposal assumptions "one automerge per run" (job restarts once) and "from v46.3.10 on" (present from v46.3.4) are imprecise, not false | NIT | author, A agrees | record | `evidence/0.4.md` *Assumption check* | no |
 
 ## Tasks
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
+| G5 (5.1, 5.2, 5.3, 5.4) | CLOSED | reviewer A + reviewer B, 2 rounds; round 1 A APPROVE, B BLOCK (PAC-1 red: the conditional `renovate-config` gate missing from the `AGENTS.md` gate list: fixed; four wording/matrix notes fixed); round 2 A APPROVE, B CLEAN (three NOTEs deferred to the hand-off); paid leg yes | none; `AGENTS.md` gate list edited for PAC-1 (alternative: an exclusion line, revert `fb3e9269f` with `88895b723`) |
 | G4 (3.1) | CLOSED-WITH-GAPS | reviewer A, 1 round, REQUEST_CHANGES (SCA policy said `vulncheck`/`lint` not required: fixed; T17 lexical: row qualified); paid leg no | T17 lexical (from 1.2); `CONTRIBUTING.md:139` squash-merge line left for stage B |
 | G3 (2.1, 2.2, 2.3, 2.4) | CLOSED | reviewer A + reviewer B, 1 round; A APPROVE (one matrix dispute: tool-pins self-test pending, run in FINAL), B CLEAN (three NOTEs, recorded); paid leg yes | none in the group; the `lint` validator step's CI proof waits for 3.1 (Verification row DUA-5) |
 | G2 (1.2) | CLOSED-WITH-GAPS | reviewer A + reviewer B, 2 rounds; round 1 A REQUEST_CHANGES (T16 took the image from any argv position: fixed), B APPROVE (P2s fixed or deferred); round 2 A APPROVE, B APPROVE; paid leg yes | T14 orders the image rule only against `github actions`; T15 sees a literal `matchDepNames` only; T17 is lexical; T16 runs on the fixture workflow and lists value-taking docker options (`evidence/1.2.md` *Harness gaps*); round-2 message wording unreviewed |
@@ -76,6 +80,7 @@ Holistic run at B: `task check` on adccaeae2, 2026-10-28: red only on gitleaks-d
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `hack/test/renovate_policy_test.sh` T7 (refuses `NODE_OPTIONS`, `GITHUB_COM_TOKEN`, `*_proxy` keys), mutants `m_t7_node_options`, `m_t7_github_com_token`, `m_t7_step_proxy`, control `c_env_neighbours` | 1.1 | 5.2 | incomplete, not wrong: stage B finding B5; DUA-3/DUA-7 allow no environment override, and the action forwards these next to the token (`evidence/5.1.md` *Test changes*) |
 | `hack/test/renovate_policy_test.sh` self-test runner (`self_test`, `run_case`) | 1.1 | 1.2 | not wrong, too slow: 148 cases took 136 s sequentially; now parallel copies (16 s), each judged as before, under `set -e`, an early end failing by name (`evidence/1.2.md` *Test changes*); no 1.1 clause changed |
 
 ## PRs
@@ -114,4 +119,6 @@ Carried over from earlier changes:
 - Renovate's branch config is its first sorted upgrade's config spread over the group (`generate.js:225-229`); only `automerge` and a few lists are recomputed over all upgrades, so a rule-level setting such as `rebaseWhen` can leak into a mixed branch (2.4)
 - A lint step placed after a guard step that is red by design never runs in CI: its CI row stays not-run until the last known red clears (2.3)
 - `/tmp` is a quota'd tmpfs: three trace-level Renovate logs (about 0.8 GB each) made a later Go link fail with `disk quota exceeded`, which the Makefile's `|| true` custom golangci-lint build turned into a misleading `plugin "logcheck" not found`; delete trace logs once summarised, and check `df /tmp` before blaming a red (G3)
+- Two guards parse `hack/check.sh` (`task_check_test.sh` and `agent_contract_test.sh` PAC-1); a new `run_gate`, even inside an `if`, must be in the `AGENTS.md` gate list (5.3)
+- An evidence file that quotes the scrub pattern makes the scrub over `git diff origin/main` match itself: name the scrub, do not quote it (5.1)
 - `task docs:verify` in a worktree needs `MISE_KUBECTL_VERSION` set and a venv of `docs/requirements-docs.txt` on `PATH`; without them it reds on the base too (3.1)
