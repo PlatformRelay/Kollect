@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Keep the Renovate label from cancelling the extended e2e run [ae5ea8d](https://github.com/platformrelay/kollect/commit/ae5ea8d6eb34bb076b0793a388abfb948e54b9ff)
+
 - **ci:** Refuse Node and proxy overrides in the Renovate workflow [fe1ea25](https://github.com/platformrelay/kollect/commit/fe1ea250d281c9d41d6f12ba99b9ccd0b2b9e23a)
 
 - **controller:** Re-export when the status write fails [4016ac5](https://github.com/platformrelay/kollect/commit/4016ac5f96674c503b4429701282565f3343b415)
