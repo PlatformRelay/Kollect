@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Refuse Node and proxy overrides in the Renovate workflow [fe1ea25](https://github.com/platformrelay/kollect/commit/fe1ea250d281c9d41d6f12ba99b9ccd0b2b9e23a)
+
 - **controller:** Re-export when the status write fails [4016ac5](https://github.com/platformrelay/kollect/commit/4016ac5f96674c503b4429701282565f3343b415)
 
 - **controller:** Debounce a sink only while its export is current [ee26ccc](https://github.com/platformrelay/kollect/commit/ee26ccc8aaad6880881213eeee4fbfb286c881f4)
