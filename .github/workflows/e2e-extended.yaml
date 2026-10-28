@@ -11,7 +11,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: e2e-extended-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A run started by Renovate's `dependencies` label (added right after it opens a PR) gets a
+  # group of its own, the run id: in the shared group it cancelled the opened run, and the
+  # cancelled check runs stay on that head SHA, which Renovate reads as pending, so its
+  # auto-merge never happened. Such a run decides as any other (same paths, same jobs), so its
+  # checks are real results. Any other label still supersedes as before; on a bot PR that leaves
+  # cancelled checks until the next push. hack/test/renovate_policy_test.sh T18 guards the group.
+  group: e2e-extended-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name == 'dependencies' && format('-label-{0}', github.run_id) || '' }}
   # HY-06: never cancel in-flight runs on main (would leave CI-UNKNOWN); PR runs still supersede.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
