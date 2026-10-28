@@ -45,6 +45,7 @@ machine, reports each failed gate, and exits non-zero if any failed. The gates, 
 - `gitleaks-detect`
 - `workflow-security`
 - `workflow-security-audit`
+- `renovate-config` (only when a Docker daemon answers; otherwise it prints that it skipped it)
 <!-- gates:end -->
 
 After the gates it runs the guard sweep: every `hack/test/*_test.sh` and
