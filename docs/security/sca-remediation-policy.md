@@ -106,15 +106,15 @@ Be explicit about what automation **blocks** vs what maintainers **track** under
 
 | Control | Mechanism | Blocks GitHub merge? | Blocks release? |
 | --- | --- | --- | --- |
-| **Reachable Go CVEs** | `govulncheck` CI job | No (not a required branch check) — **red job + maintainer policy**; contributors MUST fix before merge | Yes — release only from green CI on tag commit |
-| **Blocklisted modules** | `depguard` / `gomodguard` in `task lint` | Same as vulncheck (CI signal) | Same |
+| **Reachable Go CVEs** | `govulncheck` CI job | **Yes** — `vulncheck` is a required check; contributors MUST fix before merge | Yes — release only from green CI on tag commit |
+| **Blocklisted modules** | `depguard` / `gomodguard` in `task lint` | **Yes** — `lint` is a required check | Same |
 | **Dependency advisories** | GitHub alerts, OSV, and update PRs | No — **SLA-tracked** (7 / 30 / 90 days by severity) | Reviewed before tag |
 | **Image CVEs** | Trivy on operator, pipeline, and UI images | N/A | **Yes** — fixable CRITICAL/HIGH fails release workflow |
 | **License (Deny)** | Manual / SBOM review + lint blocklists | Maintainer blocks merge | SBOM spot-check before tag |
 
-GitHub branch protection requires a subset of named checks
+GitHub branch protection requires a set of named checks, **vulncheck** and **lint** among them
 ([CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md)). Other
-code-affecting CI jobs, including **vulncheck** and **lint**, are maintainer-policy merge blockers.
+code-affecting CI jobs are maintainer-policy merge blockers.
 Some code jobs are path-filtered for docs-only changes.
 
 ### Pre-release checklist (OSPS-VM-05.02)
