@@ -52,6 +52,13 @@
 #                    gh workflow disable, gh pr update-branch --rebase, the validator script, the
 #                    unused hosted App and the release review (DUA-10)
 #
+# Bot PR checks (follow-up to the change, found on the first digest PRs #503 and #504):
+#   T18 label runs   .github/workflows/e2e-extended.yaml puts a run started by a label other than
+#                    e2e/full in a concurrency group of its own (the run id): Renovate labels its PR
+#                    right after opening it, a shared group cancelled the opened run, and the
+#                    cancelled check runs stay on the head SHA, which Renovate reads as pending, so
+#                    a digest PR never auto-merged (DUA-7, DUA-8)
+#
 # Every value is read parsed (yq), never from YAML comments; the action's version comment is
 # read with yq's line_comment.
 #
@@ -974,10 +981,34 @@ t17_docs() {
   [[ -n "${missing}" ]] || good T17 "the Renovate section names schedule, token, dashboard, scope, pause, rebase, validation, App and release review"
 }
 
+# --- T18 label runs ------------------------------------------------------------------------
+
+E2EX_REL=".github/workflows/e2e-extended.yaml"
+# The suffix every label-started run but e2e/full adds to the shared group.
+E2EX_SUFFIX="\${{ github.event.action == 'labeled' && github.event.label.name != 'e2e/full' && format('-label-{0}', github.run_id) || '' }}"
+
+t18_label_runs() {
+  local wf="${ROOT}/${E2EX_REL}" group
+  if [[ ! -f "${wf}" ]]; then
+    bad T18 "${E2EX_REL} is missing (DUA-7)"
+    return 0
+  fi
+  group="$(yqv '.concurrency.group // ""' "${wf}")"
+  if [[ -z "${group}" ]]; then
+    bad T18 "${E2EX_REL} has no concurrency.group (DUA-7)"
+    return 0
+  fi
+  if [[ "${group}" != *"${E2EX_SUFFIX}" ]]; then
+    bad T18 "${E2EX_REL} concurrency.group does not end with the label-run suffix: a bot label cancels the opened run and leaves cancelled checks Renovate reads as pending (DUA-7)"
+    return 0
+  fi
+  good T18 "a label other than e2e/full starts an e2e-extended run in a group of its own"
+}
+
 # --- the clause table ---------------------------------------------------------------------
 
 CLAUSES=(t1_token t2_fail_closed t3_permissions t4_schedule t5_concurrency t6_pin t7_environment t8_validator t9_no_merge
-  t10_presets t11_automerge t12_merge t13_global t14_image_rule t15_helm t16_validator t17_docs)
+  t10_presets t11_automerge t12_merge t13_global t14_image_rule t15_helm t16_validator t17_docs t18_label_runs)
 
 check_tree() {
   locate
@@ -1195,6 +1226,9 @@ build_fixture() { # $1: src root, $2: destination
   write_fixture_config "$2"
   write_fixture_validator "$2"
   write_fixture_docs "$2"
+  if [[ -f "$2/${E2EX_REL}" ]]; then
+    SUF="${E2EX_SUFFIX}" yq eval -i '.concurrency.group = "e2e-extended-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}" + strenv(SUF)' "$2/${E2EX_REL}"
+  fi
   VR="${VALIDATE_RUN}" yq eval -i 'del(.jobs.lint.steps[] | select((.run // "") | test("renovate-config-validate"))) | .jobs.lint.steps += [{"name": "Validate the Renovate config (DUA-5)", "run": strenv(VR)}]' "$2/.github/workflows/ci.yaml"
 }
 
@@ -1410,6 +1444,10 @@ dmut() {
 m_rj_missing() { rm -f "${FX}/${RJF}"; }
 m_gc_missing() { rm -f "${FX}/${GCF}"; }
 m_rj_unparsable() { printf '{ "extends": [\n' >"${FX}/${RJF}"; }
+m_t18_missing() { rm -f "${FX}/${E2EX_REL}"; }
+m_t18_no_suffix() { V='e2e-extended-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}' ymut "${E2EX_REL}" '.concurrency.group = strenv(V)' '.concurrency.group == strenv(V)'; }
+m_t18_fixed_label() { V="e2e-extended-\${{ github.event.pull_request.number }}\${{ github.event.action == 'labeled' && '-label' || '' }}" ymut "${E2EX_REL}" '.concurrency.group = strenv(V)' '.concurrency.group == strenv(V)'; }
+m_t18_no_group() { ymut "${E2EX_REL}" 'del(.concurrency)' 'has("concurrency") | not'; }
 m_t10_disable_dashboard() { jmut "${RJF}" '.extends += [":disableDependencyDashboard"]' '.extends | length == 2'; }
 m_t10_remote() { jmut "${RJF}" '.extends = ["github>other-org/presets"]' '.extends[0] == "github>other-org/presets"'; }
 m_t10_string() { jmut "${RJF}" '.extends = "config:recommended"' '.extends | tag == "!!str"'; }
@@ -1547,6 +1585,10 @@ c_validator_default_entrypoint() { smut "${VSF}" 's|--entrypoint renovate-config
 # "T2+T7" judges the mutant by T2's message and also allows T7 to red: moving the token check
 # after the Renovate step breaks both clauses by definition (T7 allows the secret only there).
 MUTANTS=(
+  "T18|m_t18_missing|e2e-extended\.yaml is missing"
+  "T18|m_t18_no_suffix|does not end with the label-run suffix"
+  "T18|m_t18_fixed_label|does not end with the label-run suffix"
+  "T18|m_t18_no_group|has no concurrency\.group"
   "FILE|m_file_missing|renovate\.yaml is missing"
   "T1|m_t1_fallback|token is .*expected exactly"
   "T1|m_t1_github_token_secret|token is .*expected exactly"
