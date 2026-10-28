@@ -51,7 +51,7 @@ SHALL declare one fixed `concurrency` group for every run with `cancel-in-progre
 The Renovate step SHALL use `renovatebot/github-action` at v46.3.10 or later with a
 `renovate-image` of the form `ghcr.io/renovatebot/renovate:<version>@sha256:<64 hex>`.
 `renovate.json` SHALL group that image alone in a weekly schedule window with
-`updateNotScheduled: false` and SHALL NOT auto-merge it. The workflow SHALL NOT set any `RENOVATE_*` variable besides the repository name and the token check step's `RENOVATE_TOKEN`.
+`updateNotScheduled: false` and SHALL NOT auto-merge it. The workflow SHALL NOT set `NODE_OPTIONS`, `GITHUB_COM_TOKEN`, a proxy variable or any `RENOVATE_*` variable besides the repository name and the token check step's `RENOVATE_TOKEN`.
 
 #### Scenario: Pinned image
 
