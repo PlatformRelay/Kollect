@@ -15,8 +15,8 @@
 # The Docker/kind gates stay separate, named tasks (test-integration, kind-smoke via the
 # e2e-smoke workflow, docker:build, pipeline-cli-smoke) -- they are the exclusion table below,
 # not silent omissions. The Renovate config validator, one step of the lint job, runs when a
-# Docker daemon answers and prints that it skipped otherwise. Locked by hack/test/task_check_test.sh (plain and --self-test), which
-# runs in the required lint job.
+# Docker daemon answers and prints that it skipped otherwise. Locked by
+# hack/test/task_check_test.sh (plain and --self-test), which runs in the required lint job.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
