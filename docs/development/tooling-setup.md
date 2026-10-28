@@ -156,27 +156,57 @@ Contributors do not need Codecov accounts. Run `task coverage` before opening a 
 
 ## Renovate dependency updates
 
-Renovate runs every Monday at 04:00 UTC and can also be started manually from the
-**Renovate** GitHub Actions workflow. It replaces scheduled Dependabot version-update PRs and
-groups updates for Go modules, Kubernetes libraries, GitHub Actions, container images, the docs
-and UI package locks, pip-compile's hashed docs requirements, and pinned build tools. Dependabot
-vulnerability alerts and security updates remain enabled in repository settings; deleting
-`.github/dependabot.yml` only retires its scheduled version-update jobs.
+Renovate is self-hosted: the **Renovate** workflow (`.github/workflows/renovate.yaml`) runs it
+hourly (cron `17 * * * *`), one run at a time, and a maintainer can start a run by hand with
+**Run workflow** (manual runs log at debug level). It groups updates for Go modules, Kubernetes
+libraries, GitHub Actions, container images, the docs npm and pip-compile locks, and the pinned
+build tools. Dependabot vulnerability alerts and security updates stay enabled in the repository
+settings; there are no Dependabot version-update jobs.
 
-The workflow needs a repository secret named `RENOVATE_TOKEN` whose GitHub App or fine-grained PAT
-can write contents and pull requests. Configure it under **Settings → Secrets and variables →
-Actions**. Renovate falls back to the workflow's `github.token` when the secret is absent, so the
-scheduled job remains usable, but GitHub suppresses workflows triggered by pull requests created
-with that token. Those fallback PRs therefore do not satisfy required CI checks; provision
-`RENOVATE_TOKEN` before treating the migration as operationally complete.
+**Token.** Renovate authenticates with the repository secret `RENOVATE_TOKEN`, a token owned by
+the maintainer (**Settings → Secrets and variables → Actions**). There is no fallback: when the
+secret is empty the first step fails the run and Renovate does not start, because pull requests
+opened with the workflow's own token never start CI and could never merge. The job's
+`GITHUB_TOKEN` is read-only and only checks out the repository.
 
-Configuration is split between `.github/renovate-config.json` (self-hosted runner bootstrap) and
-`renovate.json` (repository dependency rules). Validate changes with:
+**Pinned Renovate.** The workflow runs a Renovate image pinned by tag and digest (the
+`renovate-image` input). Renovate updates that pin itself, in a PR of its own that is opened or
+updated only on Mondays (UTC), manual runs included, and is never auto-merged: a new Renovate
+changes what the bot does, so a maintainer reads it first.
 
-```sh
-npx --yes --package renovate renovate-config-validator \
-  .github/renovate-config.json renovate.json
-```
+**Dependency dashboard.** Renovate keeps a Dependency Dashboard issue open with the pending,
+rate-limited and failed updates. Its checkboxes take effect on the next run.
+
+**What auto-merges.** Only Docker image digest updates of the Dockerfiles and the devcontainer
+(same tag, new digest). Renovate merges such a PR itself, by rebase, once every check on its head
+is green, and rebases it first when it is behind `main`; it merges at most one branch per run.
+Everything else waits for a maintainer: Go modules, the `go` directive and the golang image tag
+(the `go toolchain` group), GitHub Actions, the pinned tools, the docs packages, the Renovate
+image, and any image tag change. A group PR that mixes a digest with any other update is not
+auto-merged. The scope is narrow on purpose: `RENOVATE_TOKEN` is a bypass actor of the `main`
+ruleset, so GitHub would not stop its merge even if a required check never started. A new
+third-party image added to a Dockerfile or the devcontainer joins the auto-merge scope.
+
+**Rebasing a bot PR.** Bot PRs outside the auto-merge scope are rebased only when they conflict.
+Rebase one before merging with `gh pr update-branch --rebase <number>`; the rebase checkbox in
+the PR body works too, but only on the next hourly run.
+
+**Pausing.** `gh workflow disable renovate.yaml` stops the schedule;
+`gh workflow enable renovate.yaml` turns it back on.
+
+**Validating the config.** Repository rules live in `renovate.json`, the self-hosted global
+config in `.github/renovate-config.json`. Validate both with
+`bash hack/ci/renovate-config-validate.sh`. It runs `renovate-config-validator` from the same
+pinned image as the bot, so it needs Docker, and the required `lint` job runs it on every PR.
+`hack/test/renovate_policy_test.sh` guards the workflow, both configs and this section.
+
+**The hosted Renovate App is unused.** It is still installed on the organisation and has never
+opened a PR here; removing it from the repository is the maintainer's job. If it ever starts
+working on this repository, two bots race on the same `renovate/*` branches.
+
+**Before a release.** Auto-merged digest bumps reach `main` without a human. Before approving a
+release, the maintainer reviews the bot merges since the last tag: the PRs labelled
+`dependencies` merged after it.
 
 ## What maintainers configure vs contributors
 
@@ -186,7 +216,7 @@ npx --yes --package renovate renovate-config-validator \
 | `SONAR_TOKEN` / `SONARCLOUD_TOKEN` | — | GitHub secret + `.envrc` (same token, different names) |
 | Codecov GitHub App | — | [Install app](https://github.com/apps/codecov) on `platformrelay/kollect` for reliable PR comments |
 | `CODECOV_TOKEN` | — | Legacy optional; CI uses OIDC — safe to delete after upload verified |
-| `RENOVATE_TOKEN` | — | GitHub App/PAT with contents + pull-request write access so bot PRs trigger CI |
+| `RENOVATE_TOKEN` | — | Repository secret: the maintainer-owned token Renovate runs as (contents and pull-request write), so bot PRs start CI; no fallback, the Renovate run fails without it |
 | SonarCloud quality gate blocking | — | Enable after baseline scan (Phase 1) |
 
 ## Further reading
