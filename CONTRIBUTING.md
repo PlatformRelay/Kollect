@@ -136,7 +136,7 @@ Only `feat`, `fix`, `perf`, `refactor`, and breaking commits appear in the user-
 
 1. Merge work on `main` with conventional commits.
 
-**GitHub merge policy:** use **Rebase and merge** on pull requests (merge commits are disabled). **Squash and merge** is allowed when a single commit is clearer (e.g. Dependabot); keep the squash title conventional. `main` is protected by the `protect-main` ruleset: changes land through pull requests with required status checks, and force pushes and branch deletion are blocked. Direct pushes to `main` are blocked for every person, admins included; the admin bypass applies only when merging a pull request. The one exception is the changelog-sync bot, which pushes the `CHANGELOG.md` commit after a merge.
+**GitHub merge policy:** use **Rebase and merge** on pull requests; the `protect-main` ruleset allows no other method (squash and merge commits are disabled). `main` is protected by that ruleset: changes land through pull requests with required status checks, and force pushes and branch deletion are blocked. Direct pushes to `main` are blocked for every person, admins included. The ruleset has two bypass actors: the repository admin role, only when merging a pull request (the maintainer's `RENOVATE_TOKEN` carries it, so the self-hosted Renovate can merge digest-only bot PRs), and the changelog-sync App, which pushes the `CHANGELOG.md` commit after a merge.
 2. `task changelog` — sanity-check grouping.
 3. Bump `charts/kollect/Chart.yaml` `version` and `appVersion`, run `task helm-docs`, and update the
    release-truth pages; land that prep commit through a PR. Do not hand-write a `## [X.Y.Z]`
