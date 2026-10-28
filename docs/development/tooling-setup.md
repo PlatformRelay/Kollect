@@ -172,7 +172,11 @@ opened with the workflow's own token never start CI and could never merge. The j
 **Pinned Renovate.** The workflow runs a Renovate image pinned by tag and digest (the
 `renovate-image` input). Renovate updates that pin itself, in a PR of its own that is opened or
 updated only on Mondays (UTC), manual runs included, and is never auto-merged: a new Renovate
-changes what the bot does, so a maintainer reads it first.
+changes what the bot does, so a maintainer reads it first. Reviewing it: run
+`bash hack/ci/renovate-config-validate.sh` on the PR branch (it uses the new image), and check
+in the Renovate release notes that no preset this config extends, `config:recommended` and the
+presets it pulls in, now enables auto-merge. Built-in presets resolve inside the image, so no
+guard in this repository reads them.
 
 **Dependency dashboard.** Renovate keeps a Dependency Dashboard issue open with the pending,
 rate-limited and failed updates. Its checkboxes take effect on the next run.
