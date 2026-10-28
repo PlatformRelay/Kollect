@@ -1,7 +1,7 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
-Next: L task loop, 3.1
+Next: B branch review
 Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
@@ -47,6 +47,8 @@ Holistic run at B: not run yet.
 | L G2 | self-test cases ran with `set -e` off (subshell left of `&&`); T17 secondary patterns without mutants | NOTE | B | fix | runner marks success inside the case; five T17 mutants | no |
 | L G2 | T16 never runs against the tree's own `renovate.yaml`; an unlisted value option can hide the image; T17 lexical | NOTE | B | defer | `evidence/1.2.md` *Harness gaps*; the real validator run in `lint` (2.3) and 3.1's review | no |
 | L G3 | the validator step has not run in CI: it follows the guard's plain step, red on T17 until 3.1 | NOTE | B | record | Verification row DUA-5 "`lint` on the PR head" stays not-run until a head with 3.1 | no |
+| L G4 | `docs/security/sca-remediation-policy.md` said `vulncheck` and `lint` are not required checks | P2 | A | fix | `4dca03ca8` | no |
+| L G4 | `CONTRIBUTING.md:139` allows squash merges; the ruleset allows rebase only | NOTE | author | defer | stage B | no |
 | L G3 | a mixed group branch can inherit `rebaseWhen: behind-base-branch` from a digest upgrade that sorts first (`generate.js:217-229`): rebased when behind, never merged | NOTE | B | record | `evidence/2.4.md` *Observations*; cost only, no requirement; for stage B | no |
 | L G0 | proposal assumptions "one automerge per run" (job restarts once) and "from v46.3.10 on" (present from v46.3.4) are imprecise, not false | NIT | author, A agrees | record | `evidence/0.4.md` *Assumption check* | no |
 
@@ -54,6 +56,7 @@ Holistic run at B: not run yet.
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
+| G4 (3.1) | CLOSED-WITH-GAPS | reviewer A, 1 round, REQUEST_CHANGES (SCA policy said `vulncheck`/`lint` not required: fixed; T17 lexical: row qualified); paid leg no | T17 lexical (from 1.2); `CONTRIBUTING.md:139` squash-merge line left for stage B |
 | G3 (2.1, 2.2, 2.3, 2.4) | CLOSED | reviewer A + reviewer B, 1 round; A APPROVE (one matrix dispute: tool-pins self-test pending, run in FINAL), B CLEAN (three NOTEs, recorded); paid leg yes | none in the group; the `lint` validator step's CI proof waits for 3.1 (Verification row DUA-5) |
 | G2 (1.2) | CLOSED-WITH-GAPS | reviewer A + reviewer B, 2 rounds; round 1 A REQUEST_CHANGES (T16 took the image from any argv position: fixed), B APPROVE (P2s fixed or deferred); round 2 A APPROVE, B APPROVE; paid leg yes | T14 orders the image rule only against `github actions`; T15 sees a literal `matchDepNames` only; T17 is lexical; T16 runs on the fixture workflow and lists value-taking docker options (`evidence/1.2.md` *Harness gaps*); round-2 message wording unreviewed |
 | G1 (1.1) | CLOSED-WITH-GAPS | reviewer A + reviewer B, 2 rounds; round 1 A REQUEST_CHANGES, B CONCERNS (T2 judged an unspecified shell with pipefail: fixed); round 2 A BLOCK (no defect: its sandbox could not execute; its P2 fixed), B CONCERNS (fixed or recorded); paid leg yes | round-2 fixes unreviewed (stage B); T9 does not see a third-party merge action or a line-continued merge command (`evidence/1.1.md` *Harness gaps*) |
@@ -67,7 +70,7 @@ Holistic run at B: not run yet.
 | ~~`hack/test/renovate_policy_test.sh` T8 (plain mode; `lint` red)~~ cleared | DUA-5 | 1.1 | 2.3 (`779ec7182`) |
 | ~~`hack/test/renovate_policy_test.sh` T10, T11, T12, T14, T15 (plain mode; `lint` red)~~ cleared | DUA-3, DUA-4, DUA-7, DUA-8, DUA-9 | 1.2 | 2.2 (`c7a649aec`) |
 | ~~`hack/test/renovate_policy_test.sh` T16 (plain mode, red on the stub; `lint` red)~~ cleared | DUA-5 | 1.2 | 2.3 (`779ec7182`) |
-| `hack/test/renovate_policy_test.sh` T17 (plain mode; `lint` red) | DUA-10 | 1.2 | 3.1 |
+| ~~`hack/test/renovate_policy_test.sh` T17 (plain mode; `lint` red)~~ cleared | DUA-10 | 1.2 | 3.1 (`2a107fecc`) |
 
 ## Test changes
 
@@ -111,3 +114,4 @@ Carried over from earlier changes:
 - Renovate's branch config is its first sorted upgrade's config spread over the group (`generate.js:225-229`); only `automerge` and a few lists are recomputed over all upgrades, so a rule-level setting such as `rebaseWhen` can leak into a mixed branch (2.4)
 - A lint step placed after a guard step that is red by design never runs in CI: its CI row stays not-run until the last known red clears (2.3)
 - `/tmp` is a quota'd tmpfs: three trace-level Renovate logs (about 0.8 GB each) made a later Go link fail with `disk quota exceeded`, which the Makefile's `|| true` custom golangci-lint build turned into a misleading `plugin "logcheck" not found`; delete trace logs once summarised, and check `df /tmp` before blaming a red (G3)
+- `task docs:verify` in a worktree needs `MISE_KUBECTL_VERSION` set and a venv of `docs/requirements-docs.txt` on `PATH`; without them it reds on the base too (3.1)
