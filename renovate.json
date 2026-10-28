@@ -162,7 +162,7 @@
       "pinDigests": true
     },
     {
-      "description": "The only auto-merge (DUA-7): a branch whose every update is a Dockerfile or devcontainer image digest, same tag. Renovate merges it itself (platformAutomerge false) by rebase once every check on its head is green, and rebases it first when it is behind main (DUA-8). A branch that also holds any other update (a tag change, the go directive) is not auto-merged, as branch automerge needs every upgrade's. hack/test/renovate_policy_test.sh (T11, T12) keeps this the one automerge in both config files.",
+      "description": "The only auto-merge (DUA-7): a branch whose every update is a Dockerfile or devcontainer image digest, same tag. Renovate merges it itself (platformAutomerge false) by rebase once every check on its head is green, and rebases it first when it is behind main (DUA-8). A branch that also holds any other update (a tag change, the go directive) is not auto-merged, as branch automerge needs every upgrade's; when such a digest sorts first in that group, the branch still takes this rebaseWhen, so it is rebased when behind main but never merged (CI cost only). hack/test/renovate_policy_test.sh (T11, T12) keeps this the one automerge in both config files.",
       "matchManagers": ["devcontainer", "dockerfile"],
       "matchUpdateTypes": ["digest"],
       "automerge": true,

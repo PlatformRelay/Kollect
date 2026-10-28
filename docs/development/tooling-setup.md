@@ -188,8 +188,10 @@ ruleset, so GitHub would not stop its merge even if a required check never start
 third-party image added to a Dockerfile or the devcontainer joins the auto-merge scope.
 
 **Rebasing a bot PR.** Bot PRs outside the auto-merge scope are rebased only when they conflict.
-Rebase one before merging with `gh pr update-branch --rebase <number>`; the rebase checkbox in
-the PR body works too, but only on the next hourly run.
+The exception is a group PR whose first update in Renovate's order is an image digest: it takes
+that update's setting, so Renovate rebases it whenever it falls behind `main`, but never merges
+it. Rebase a bot PR before merging with `gh pr update-branch --rebase <number>`; the rebase
+checkbox in the PR body works too, but only on the next hourly run.
 
 **Pausing.** `gh workflow disable renovate.yaml` stops the schedule;
 `gh workflow enable renovate.yaml` turns it back on.

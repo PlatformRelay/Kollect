@@ -22,9 +22,13 @@ and is recorded here.
   merge. A daily run would starve too: a behind PR is rebased in one run, is pending in it, and on
   a busy day (`main` moved on 11 of the 21 days from 10-05 to 10-25) is behind again by the next
   run. An hourly cron (`17 * * * *`) gives a rebased PR its CI time and a merge in a later run.
-  Only auto-merge PRs are rebased when behind (`rebaseWhen` on that rule); every other bot PR is
-  rebased only on conflict (top-level `conflicted`), so hourly runs do not re-run CI on PRs that
-  wait for a human, who rebases them on merge. A `concurrency` group without cancellation stops a manual dispatch from overlapping the
+  Auto-merge PRs are rebased when behind (`rebaseWhen` on that rule); other bot PRs are rebased
+  only on conflict (top-level `conflicted`), so hourly runs do not re-run CI on PRs that wait for
+  a human, who rebases them on merge. The exception is a mixed group whose first sorted update is
+  such a digest: Renovate takes a branch's settings from that update and recomputes only
+  `automerge` over all of them (task 2.4), so the group is rebased when behind but never
+  auto-merged. `rebaseWhen: auto` would avoid that and rebase every bot PR instead, because
+  Renovate's `getBranchForceRebase` reads the rulesets. A `concurrency` group without cancellation stops a manual dispatch from overlapping the
   scheduled run.
 - **Pinned Renovate.** The job holds a token that can push to every branch, so the code it runs
   is pinned. `renovate-image` holds `ghcr.io/renovatebot/renovate:<version>@sha256:<digest>`. The
@@ -104,3 +108,8 @@ and is recorded here.
 - [Rule order or presets drift] → the guard fails on a second automerge rule, an automerge
   preset or a changed matcher.
 - [Daily Renovate-image PRs] → weekly schedule for that group.
+- [A mixed group rebased hourly] → a group whose first sorted update is an image digest is
+  rebased whenever it is behind `main` and never merged: CI cost, no merge. Accepted; it lasts
+  until a maintainer merges the PR.
+- [ghcr.io outage reds `lint`] → the required `lint` job pulls the pinned Renovate image on every
+  PR, so a ghcr.io outage turns it red. Accepted; the digest pin makes a cache possible later.
