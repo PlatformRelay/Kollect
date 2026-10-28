@@ -14,7 +14,8 @@
 #
 # The Docker/kind gates stay separate, named tasks (test-integration, kind-smoke via the
 # e2e-smoke workflow, docker:build, pipeline-cli-smoke) -- they are the exclusion table below,
-# not silent omissions. Locked by hack/test/task_check_test.sh (plain and --self-test), which
+# not silent omissions. The Renovate config validator, one step of the lint job, runs when a
+# Docker daemon answers and prints that it skipped otherwise. Locked by hack/test/task_check_test.sh (plain and --self-test), which
 # runs in the required lint job.
 set -uo pipefail
 
@@ -61,6 +62,14 @@ run_gate gitleaks-detect ./bin/gitleaks detect --source . --config .github/gitle
 run_gate workflow-security bash hack/install-zizmor.sh ./bin
 # The pinned offline audit, same invocation as ci.yaml's workflow-security job.
 run_gate workflow-security-audit ./bin/zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/
+
+# The lint job's Renovate config validator (DUA-5) pulls the pinned Renovate image, so it runs
+# only when a Docker daemon answers; without one it is skipped with that reason, never silently.
+if docker info >/dev/null 2>&1; then
+  run_gate renovate-config bash hack/ci/renovate-config-validate.sh
+else
+  printf '\n--- task check: renovate-config ---\ncheck: skipped %-22s no Docker daemon answers (docker info); the validator runs the pinned Renovate image, run bash hack/ci/renovate-config-validate.sh where Docker is available\n' renovate-config
+fi
 
 # TCE-3 mapping: required contexts whose local equivalent is a combination of the gates above.
 # hack/test/task_check_test.sh reads these lines; guard-sweep is the entry for the guard run.
