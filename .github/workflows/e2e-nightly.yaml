@@ -108,7 +108,7 @@ jobs:
 
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.52.0
+          version: 3.54.0
 
       - name: Micro-benchmarks
         run: task bench
@@ -140,7 +140,7 @@ jobs:
 
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.52.0
+          version: 3.54.0
 
       - name: Unit + envtest under -race
         id: race
@@ -206,7 +206,7 @@ jobs:
 
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.52.0
+          version: 3.54.0
 
       - name: Extractor hot-path budget (micro-benchmark, not a scale tier)
         run: task extract-budget
@@ -231,7 +231,7 @@ jobs:
 
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.52.0
+          version: 3.54.0
 
       - name: Extended envtest scale (10k)
         run: go test -run TestEngine_ScaleEnvtestOptIn -count=1 -timeout=35m ./internal/collect/...
