@@ -6,11 +6,11 @@
     "lint:markdown": "markdownlint-cli2"
   },
   "devDependencies": {
-    "markdownlint-cli2": "0.23.3"
+    "markdownlint-cli2": "0.24.0"
   },
   "overrides": {
-    "js-yaml": "5.4.2",
-    "katex": "0.18.2",
-    "smol-toml": "1.9.0"
+    "js-yaml": "5.5.0",
+    "katex": "0.19.1",
+    "smol-toml": "1.9.1"
   }
 }
