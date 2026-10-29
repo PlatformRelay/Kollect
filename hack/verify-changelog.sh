@@ -8,7 +8,7 @@ cd "${ROOT}"
 CLIFF="${GIT_CLIFF_BIN:-${ROOT}/bin/git-cliff}"
 if [[ ! -x "${CLIFF}" ]]; then
   echo "verify-changelog: installing git-cliff into bin/" >&2
-  bash hack/install-git-cliff.sh v2.13.1 bin/git-cliff
+  bash hack/install-git-cliff.sh v2.14.2 bin/git-cliff
   CLIFF="${ROOT}/bin/git-cliff"
 fi
 

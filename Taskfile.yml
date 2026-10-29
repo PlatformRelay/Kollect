@@ -19,14 +19,14 @@ vars:
   # Packages whose integration-tagged tests make up the L3 tier (task test-integration).
   INTEGRATION_PACKAGES: ./internal/sink/... ./internal/pipeline/...
   # renovate: datasource=github-releases depName=orhun/git-cliff
-  GIT_CLIFF_VERSION: v2.13.1
+  GIT_CLIFF_VERSION: v2.14.2
   GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
   CLIFF_CONFIG: hack/release/cliff.toml
   GO_ARCH_LINT_CONFIG: .go-arch-lint.yml
   GO_ARCH_LINT_GRAPH: docs/architecture-graph.svg
   MARKDOWNLINT_CONFIG: hack/tooling/markdownlint-cli2.yaml
   # renovate: datasource=github-releases depName=fe3dback/go-arch-lint
-  GO_ARCH_LINT_VERSION: v1.19.0
+  GO_ARCH_LINT_VERSION: v1.19.1
   # renovate: datasource=go depName=golang.org/x/vuln
   GOVULNCHECK_VERSION: v1.9.0
   # renovate: datasource=go depName=github.com/go-gremlins/gremlins

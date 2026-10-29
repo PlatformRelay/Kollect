@@ -52,7 +52,7 @@ idiomatic_version_file_enable_tools = ["go"]
 [tools]
 # Task runs the whole gate matrix (Taskfile.yml). Matches the `version:` input of every
 # `go-task/setup-task` step under .github/ (workflows and composite actions).
-task = "3.52.0"
+task = "3.54.0"
 
 # Node runs markdownlint-cli2 for `task lint:markdown` (pinned in docs/package.json).
 # Matches `node-version: "22"` in .github/workflows/docs.yaml and
