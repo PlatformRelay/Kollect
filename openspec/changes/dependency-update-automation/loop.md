@@ -1,19 +1,19 @@
 # Loop — dependency-update-automation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/dependency-update-automation` · Branch: `spec/dependency-update-automation` · Base: `origin/main` @ `023313519` · Started: 2026-10-26 · Reviewers: two independent reviewers (A, B)
-Next: hand-off — ready PR, all checks green, rebase-merge; post-merge rows; archive in a follow-up PR
+Next: none — archived
 Budget: paid review legs uncapped (operator goal 2026-10-16); estimate R 2, L 1 to 3 (CI-touching tasks take the extra leg), B 1 to 2 · delegated decisions logged in the maintainer's decision record, pending validation
 
 Change 6 of 10 (issue #443), redesigned 2026-10-26 around the self-hosted Renovate (operator ruling). Spec set: proposal.md, design.md, specs/dependency-updates/spec.md, tasks.md.
 
 ## Stages
 
-- [x] 0 orient — re-measured against `origin/main` @ `023313519` (2026-10-26): ruleset, secrets (names only), Renovate run history and log, renovate.json, Renovate 44.167.7 source (github-actions known actions), action `src/docker.ts` at v46.3.2 and v46.3.10. Auto-merge policy decided by a delegated three-leg vote: D (digest-only), pending operator validation
+- [x] 0 orient — re-measured against `origin/main` @ `023313519` (2026-10-26): ruleset, secrets (names only), Renovate run history and log, renovate.json, Renovate 44.167.7 source (github-actions known actions), action `src/docker.ts` at v46.3.2 and v46.3.10. Auto-merge policy decided by a delegated three-leg vote: D (digest-only), validated by the operator 2026-10-28
 - [x] P spec set — rewritten for the self-hosted design (OpenSpec change; no Spec Kit plan step)
 - [x] R spec-set review — round 1 (abaea4694): reviewer A BLOCK, reviewer B BLOCK; 3 CRITICAL, all mechanical and agreed, fixed (verification.md); round 2 (5e2f421c2, last): reviewer A BLOCK (1 CRITICAL: nested presets), reviewer B CONCERNS; all 9 findings verified and fixed unreviewed (round-2/verification.md); stage B re-checks them. No CRITICAL open
 - [x] L task loop — G0 to G4 closed (see *Tasks*)
 - [x] B branch review — rebased on `e95e8005d`; holistic `task check`: 4 environment reds, all green after fixing the environment (verification.md); round 1 (adccaeae2): reviewer A CONCERNS, reviewer B spec CONCERNS, fitness CONCERNS; no CRITICAL; fixes 5.1 to 5.4 closed in G5 (reviewed, both legs, 2 rounds); no round 2 of B (no accepted CRITICAL). `AGENTS.md` gate list gained the `renovate-config` line (PAC-1 sync, accepted)
-- [ ] Hand-off
+- [x] Hand-off — #502 merged (`2cf23a200`, 2026-10-28); post-merge fix #506 (`c0e8629ab`): the `dependencies` label cancelled the E2E extended run and Renovate read the cancelled checks as pending (T18 added); post-merge rows pass (`evidence/post-merge.md`): scheduled runs, pinned image, dashboard #505, bot auto-merges #503 and #504; archived in the follow-up evidence PR. Open, non-gating: task 4.2 (operator removes the hosted App)
 
 ## Fitness functions
 
@@ -35,7 +35,7 @@ Holistic run at B: `task check` on adccaeae2, 2026-10-28: red only on gitleaks-d
 
 | Stage | Finding (one line) | Sev | Raised by | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
-| 0 | auto-merge policy: A none / B digest + aged Go patch / C native / D digest only | decision | leg 1 A, leg 2 D, tiebreak D | fix (D) | spec DUA-7, design | pending operator validation |
+| 0 | auto-merge policy: A none / B digest + aged Go patch / C native / D digest only | decision | leg 1 A, leg 2 D, tiebreak D | fix (D) | spec DUA-7, design | validated by the operator 2026-10-28 |
 | R1 | 17 findings (`reviews/R-spec-set/verification.md`): T11 key set, automerge outside packageRules / presets / global config / env, dispatch `RENOVATE_FORCE` | 3 CRITICAL | A+B | fix (B-12 reject) | spec set, round 2 review | no |
 | R2 | 9 findings (`reviews/R-spec-set/round-2/verification.md`): nested presets, workflow-level env, `updateNotScheduled`, T13 baseline, mixed-branch fixture, hourly cron | 1 CRITICAL | A+B | fix | spec set, unreviewed (last round) | no |
 | 0 | public-text rule: docs task 3.1 runs in a normal task subagent | process | orchestrator | deviate | the section's content is fixed by DUA-10 and T15; the reviewer and the scrub gate check for private content | no |
@@ -87,6 +87,9 @@ Holistic run at B: `task check` on adccaeae2, 2026-10-28: red only on gitleaks-d
 
 | PR | Purpose | State |
 |---|---|---|
+| #502 | change 6 | merged 2026-10-28, `2cf23a200`; `main` CI green by headSha |
+| #506 | post-merge fix: label-cancelled E2E extended run (T18) | merged 2026-10-28, `c0e8629ab`; `main` CI green by headSha |
+| follow-up | post-merge evidence and archive (with ci-workflow-hardening) | this PR |
 
 ## Lessons
 

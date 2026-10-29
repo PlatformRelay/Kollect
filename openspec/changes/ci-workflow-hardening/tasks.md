@@ -24,14 +24,16 @@
 
 ## 5. Operator-owned (hard prerequisite of the later changes)
 
-- [ ] 5.1 (operator) Probe that a skipped required job counts as passing, then make `lint`, `vulncheck`, `workflow-security` and `dependency-review` required checks in `protect-main`
+- [x] 5.1 (operator) Probe that a skipped required job counts as passing, then make `lint`, `vulncheck`, `workflow-security` and `dependency-review` required checks in `protect-main`
   - 2026-10-25: the four are required (ruleset versions 53247538 and 53474785). The skip probe is still open: `vulncheck` is skipped on every docs-only PR, and no docs-only PR has yet reached a state that shows whether the skipped job counts as passing (#489 is also red on `dependency-review`). Evidence: evidence/post-merge.md
+  - 2026-10-29: closed. Dependabot #489 (docs only) merged as `3772071` with `vulncheck` SKIPPED and every other required context SUCCESS; rule suite 4802732069 `required_status_checks` `pass`, not `bypass`. Evidence: evidence/post-merge.md
 - [x] 5.2 (operator) Read the ruleset JSON for `require_extra_approval_for_unattributed_changes` and record whether it affects bot PRs — closed 2026-10-25, evidence: evidence/post-merge.md (`true`; Renovate #475/#476 and Dependabot #457 merged with rule suite `pass`)
 
 ## 6. Land
 
-- [ ] 6.1 Merge with the `post-merge` rows below open; the archive commit lands in a small follow-up evidence PR once they pass
+- [x] 6.1 Merge with the `post-merge` rows below open; the archive commit lands in a small follow-up evidence PR once they pass
   - 2026-10-25: merged as #450; every post-merge row passes except the CWS-6 skip probe (task 5.1), so the archive waits for it
+  - 2026-10-29: the skip probe passes (task 5.1); archived in the follow-up evidence PR together with dependency-update-automation
 
 ## zizmor threshold decision (measured 2026-10-05, zizmor 1.30.1)
 
@@ -64,6 +66,6 @@ findings are all cosmetic:
 | CWS-4 | three quick merges to main each get a run | each SHA has a run | pass: five 2026-10-25 merges, one push run each | evidence/post-merge.md |
 | CWS-5 | meta-test with `push` removed (mutant) | mutant red | red locally | evidence/evidence.md |
 | CWS-6 | meta-test: guard in non-required job, unpinned mode | red | red locally (19 pre-existing orphans wired into `lint`: 4 e2e-side + 15 docs-side) | evidence/evidence.md |
-| CWS-6 | ruleset lists the four jobs as required | listed; skipped required job counts as passing | listed (10 contexts); skip probe open | evidence/post-merge.md, task 5.1 |
+| CWS-6 | ruleset lists the four jobs as required | listed; skipped required job counts as passing | pass: listed (10 contexts); skipped `vulncheck` counted as passing on #489 (rule suite 4802732069 `pass`) | evidence/post-merge.md, task 5.1 |
 | CWS-7 | self-test mutants plus no-op control, by exit status | each mutant red, no-op green | green locally (34 mutants + no-op) | evidence/evidence.md |
-| all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | this PR |
+| all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | pass: two approval rounds before merge (#450, `3ee212669` closes the second round's findings), CI green on its head; archive revision: the follow-up evidence PR that also archives dependency-update-automation | evidence/evidence.md, evidence/post-merge.md |

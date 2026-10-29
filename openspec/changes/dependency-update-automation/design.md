@@ -40,7 +40,7 @@ and is recorded here.
   schedule on a manual run), so a dispatch respects that window too. The config validator runs from the same reference, so the validator and the
   bot cannot disagree.
 - **Auto-merge: Docker image digests only.** Delegated decision 2026-10-26 (outcome D of four,
-  2 of 3 legs), pending operator validation. Only `digest` updates of the `dockerfile` and
+  2 of 3 legs), validated by the operator 2026-10-28. Only `digest` updates of the `dockerfile` and
   `devcontainer` managers auto-merge. Today those are the golang builder and Debian base images
   and the devcontainer image. They are the bulk of the manual load and change no version. The
   rejected options:

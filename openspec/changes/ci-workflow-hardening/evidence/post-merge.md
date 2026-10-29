@@ -162,7 +162,38 @@ So the case is real (docs-only PRs skip a required job), but no observation yet 
 treating that skipped job as passing. The probe stays open until a docs-only PR with
 otherwise green checks reaches a mergeable state (or does not).
 
-**Result: open.** Task 5.1 stays unticked.
+**Result (2026-10-25): open.** Superseded by the 2026-10-29 probe below.
+
+### Skipped required job counts as passing — proven 2026-10-29
+
+Dependabot #489 changed only `docs/requirements-docs.in` and `docs/requirements-docs.txt`, so
+`vulncheck` (a required context) was skipped on its head `9a127e55f`. It merged on 2026-10-29T20:58:07Z
+as `3772071588ea42daa9592df1db5fe18d1f52c6c1` by rebase. GitHub reported the PR's
+`mergeStateStatus` as `CLEAN` before the merge (coordinator observation, 2026-10-29).
+
+```bash
+gh api graphql -f query='query{repository(owner:"PlatformRelay",name:"Kollect"){pullRequest(number:489){
+  state mergedAt mergeCommit{oid} files(first:20){nodes{path}}
+  commits(last:1){nodes{commit{oid statusCheckRollup{state contexts(first:100){nodes{__typename
+    ... on CheckRun{name conclusion isRequired(pullRequestNumber:489)}
+    ... on StatusContext{context state isRequired(pullRequestNumber:489)}}}}}}}}}}'
+```
+
+Required contexts on the head (`isRequired(pullRequestNumber:489) == true`): `preflight`, `test`,
+`kind-smoke`, `Analyze (Go)`, `lint`, `workflow-security`, `dependency-review`,
+`tool-pins-selftest`, `breaking-marker`: SUCCESS; `vulncheck`: **SKIPPED**.
+
+```bash
+gh api "repos/PlatformRelay/Kollect/rulesets/rule-suites?ref=refs/heads/main&time_period=day" \
+  -q '.[]|select(.after_sha=="3772071588ea42daa9592df1db5fe18d1f52c6c1")'
+gh api repos/PlatformRelay/Kollect/rulesets/rule-suites/4802732069
+```
+
+Rule suite 4802732069 for that push: result `pass`; `required_status_checks` `pass`,
+`pull_request` `pass` (not `bypass`). So the ruleset accepted the skipped required job as passing
+without any bypass.
+
+**Result: pass.** Task 5.1 closed.
 
 ## Task 5.2 — `require_extra_approval_for_unattributed_changes`
 
