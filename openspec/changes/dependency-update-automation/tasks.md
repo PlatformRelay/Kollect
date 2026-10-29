@@ -49,8 +49,8 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 
 ## 4. Land
 
-- [ ] 4.1 Merge with the `post-merge` rows open; archive in a follow-up evidence PR once they pass
-- [ ] 4.2 (operator) Remove the hosted Renovate App from the repository (not a gate for the archive; listed so it is not lost)
+- [x] 4.1 Merge with the `post-merge` rows open; archive in a follow-up evidence PR once they pass — merged as #502 (`2cf23a200`) on 2026-10-28, fix #506 (`c0e8629ab`); post-merge rows pass (`evidence/post-merge.md`); archived in the follow-up evidence PR
+- [ ] 4.2 (operator) Remove the hosted Renovate App from the repository (not a gate for the archive; listed so it is not lost) — open at archive, 2026-10-29
 
 ## 5. Stage B fixes (round 1, `reviews/B-branch/round-1/verification.md`)
 
@@ -64,19 +64,19 @@ Guard: `hack/test/renovate_policy_test.sh` (plain mode checks a tree, default th
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | DUA-1 | guard T1, T2, T3, T7 and their mutants | green on tree, each mutant red with its message | pass: T1, T2, T3, T7 green on the tree (2.1); mutants red on their own messages | `evidence/1.1.md`, `evidence/2.1.md` |
-| DUA-1 | dispatched run on `main` after merge | run succeeds under `RENOVATE_TOKEN` | post-merge | follow-up evidence PR |
+| DUA-1 | dispatched run on `main` after merge | run succeeds under `RENOVATE_TOKEN` | pass: run 40707869797 | `evidence/post-merge.md` |
 | DUA-2 | guard T4, T5 and mutants | as above | pass: T4, T5 green on the tree (2.1); mutants pass | `evidence/1.1.md`, `evidence/2.1.md` |
-| DUA-2 | scheduled runs on `main` after merge, on a day other than Monday | several runs that day, `event=schedule` | post-merge | follow-up evidence PR |
+| DUA-2 | scheduled runs on `main` after merge, on a day other than Monday | several runs that day, `event=schedule` | pass: 40756078933 (Wednesday), 40791388973, 40826205277, 40879892658, 40936034830 | `evidence/post-merge.md` |
 | DUA-3 | guard T6, T7, T14 and mutants; 0.4 (a), 2.4: image branch alone, `automerge` false, outside its window not created | as stated | pass: T6, T7, T14 green on the tree, mutants pass (T7 also refuses `NODE_OPTIONS`, `GITHUB_COM_TOKEN` and proxy keys since 5.2); 0.4 (a) and 2.4 (a) pass (own branch, `automerge` false, `isScheduledNow` false outside the window) | `evidence/0.4.md` (a), `evidence/0.5.md`, `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md`, `evidence/2.4.md` (a), `evidence/5.1.md` |
-| DUA-3 | the first run on `main` pulls the digest reference | run log names `@sha256:` | post-merge | follow-up evidence PR |
+| DUA-3 | the first run on `main` pulls the digest reference | run log names `@sha256:` | pass: run 40707869797 | `evidence/post-merge.md` |
 | DUA-4 | guard T10 and mutant | as above | pass: T10 green on the tree (2.2); mutants pass | `evidence/1.2.md`, `evidence/2.1.md` |
-| DUA-4 | dashboard issue after the first run on `main` | open issue by the token's user | post-merge | follow-up evidence PR |
+| DUA-4 | dashboard issue after the first run on `main` | open issue by the token's user | pass: #505 | `evidence/post-merge.md` |
 | DUA-5 | guard T8, T16 and mutants; real validator run on the final config | as above; exit 0 | pass: T8, T16 green on the tree (2.3), mutants pass; the real validator exits 0 on the final config (again on 5.x's tree) and 1 on an unknown option, a needed migration and a digest-less image; `task check` runs it when Docker answers (5.3) | `evidence/0.5.md`, `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md`, `evidence/5.1.md` |
-| DUA-5 | `lint` on the PR head runs the validator | step green | not-run: the guard's plain step is green since 3.1, so the step first runs on the PR head | `evidence/2.1.md` *Independent review* |
+| DUA-5 | `lint` on the PR head runs the validator | step green | pass: #502 CI run 40693053492 | `evidence/post-merge.md` |
 | DUA-7 | guard T10, T11, T13 and mutants; 0.4 (c), 2.4: only digest-only dockerfile/devcontainer branches carry `automerge` | as stated | pass: T10, T11, T13 green on the tree, mutants pass; 0.4 (c) and 2.4 (c) pass | `evidence/0.4.md` (c), `evidence/1.2.md`, `evidence/2.1.md`, `evidence/2.4.md` (c) |
-| DUA-7 | first digest-only PR after merge is merged by the bot after all checks green | merged, rebase | post-merge | follow-up evidence PR (needs an upstream digest) |
+| DUA-7 | first digest-only PR after merge is merged by the bot after all checks green | merged, rebase | pass: #503 → `81c06cfcd`, #504 → `a2d2083f0` (after fix #506) | `evidence/post-merge.md`, `evidence/post-merge-fix.md` |
 | DUA-8 | guard T7, T9, T12, T13 and mutants; 0.4 (e) source evidence for no checks, red, pending and behind | as stated | pass: T7, T9, T12, T13 green on the tree, mutants pass; 0.4 (e) pass | `evidence/0.4.md` (e), `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md` |
 | DUA-9 | guard T15 and mutant; 0.4 (b), 2.4: `release.yaml`'s Helm input in the same branch as every `HELM_VERSION` (`renovate/helm`, or `renovate/major-helm` for a major) | as stated | pass: T15 green on the tree (2.2), mutants pass; 0.4 (b) and 2.4 (b) pass (`release.yaml` and every `HELM_VERSION` site in `renovate/helm` and in `renovate/major-helm`) | `evidence/0.4.md` (b), `evidence/1.2.md`, `evidence/2.1.md`, `evidence/2.4.md` (b) |
 | DUA-10 | guard T17 and mutant; docs read against the config | as stated | pass: T17 green on the tree (3.1), mutants pass; each statement read against `renovate.yaml`, `renovate.json` and the global config, reviewer A agrees | `evidence/1.2.md`, `evidence/3.1.md` |
-| all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | partial: green after 1.1, 1.2 and section 2 (tool-pins self-test: see `evidence/2.1.md` *FINAL*) | `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md` |
-| all | independent review; CI on the PR head | APPROVE, green | not-run | |
+| all | CWS-6 enrolment, `ci_workflow_security_test.sh` both modes, CFC/DTP guards both modes | green | pass: green after 1.1, 1.2 and section 2 (`evidence/2.1.md` *FINAL*), and in `lint`/`tool-pins-selftest` on #502's head | `evidence/1.1.md`, `evidence/1.2.md`, `evidence/2.1.md` |
+| all | independent review; CI on the PR head | APPROVE, green | pass: branch review and fix reviews; #502 head all green | `reviews/B-branch/`, `reviews/L-tasks/G5/`, `evidence/post-merge.md` |
