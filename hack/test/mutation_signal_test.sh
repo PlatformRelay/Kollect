@@ -1323,7 +1323,7 @@ done' 'measure aggregate "${ROOT}" ./internal/... ./internal/...'
   judge W1 "a pull_request trigger (W1)" "W1: on: is" lit "${W}" '  workflow_dispatch:' "  workflow_dispatch:${nl}  pull_request:"
   judge W1 "permissions widened (W1)" "W1: permissions: is" lit "${W}" '  contents: read' '  contents: write'
   judge W1 "setup-task at a version no other workflow uses (W1)" "W1: setup-task version: 99.0.0 is used by no other workflow" \
-    lit "${W}" '          version: 3.52.0' '          version: 99.0.0'
+    lit "${W}" '          version: 3.54.0' '          version: 99.0.0'
   judge 'W1|C1' "the workflow deleted (absence)" "W1: absence: .github/workflows/mutation.yaml is missing" rm -f "${W}"
   judge C1 "the workflow renamed (C1)" "C1: the reporter's 'Mutation testing' does not equal" \
     lit "${W}" 'name: Mutation testing' 'name: Mutation testing (nightly)'
