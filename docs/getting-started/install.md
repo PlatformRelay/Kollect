@@ -56,7 +56,7 @@ installs the newest one (the [releases](https://github.com/platformrelay/kollect
 them):
 
 ```sh
-helm install kollect oci://ghcr.io/platformrelay/charts/kollect --version 0.21.0 \
+helm install kollect oci://ghcr.io/platformrelay/charts/kollect --version 0.22.0 \
   --namespace kollect-system --create-namespace
 kubectl -n kollect-system rollout status \
   deployment/kollect-controller-manager --timeout=120s
