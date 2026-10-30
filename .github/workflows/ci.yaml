@@ -228,7 +228,11 @@ jobs:
           # downloads the Task binary on runners. It is never linked, vendored or shipped in the
           # kollect binary, image or chart, and every workflow already uses it at the same pinned
           # sha. Scoped to the package, not the licence, so another GPL action still fails.
-          allow-dependencies-licenses: pkg:golang/golang.org/x/net, pkg:pypi/cairosvg, pkg:githubactions/go-task/setup-task
+          # Added 2026-10-30 (operator): golang.org/x/sys and golang.org/x/tools now carry the same Go
+          # PATENTS ref as x/net above. certifi (MPL-2.0) is the CA bundle the docs-site build's
+          # requests stack uses; docs only, never shipped. SonarSource/sonarqube-scan-action
+          # (reported LGPL-3.0) is a CI-only action like setup-task. All scoped to the package.
+          allow-dependencies-licenses: pkg:golang/golang.org/x/net, pkg:golang/golang.org/x/sys, pkg:golang/golang.org/x/tools, pkg:pypi/cairosvg, pkg:pypi/certifi, pkg:githubactions/go-task/setup-task, pkg:githubactions/SonarSource/sonarqube-scan-action
 
   verify:
     name: verify
