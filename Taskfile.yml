@@ -32,7 +32,7 @@ vars:
   # renovate: datasource=go depName=github.com/go-gremlins/gremlins
   GREMLINS_VERSION: v0.6.0
   # renovate: datasource=github-releases depName=helm/helm
-  HELM_VERSION: v3.22.1
+  HELM_VERSION: v4.3.1
   # renovate: datasource=github-releases depName=norwoodj/helm-docs
   HELM_DOCS_VERSION: v1.14.2
   HELM_DOCS_BIN: "{{.BIN_DIR}}/helm-docs"
