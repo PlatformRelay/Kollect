@@ -35,7 +35,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags
 # (which shell out to git) are therefore unsupported in this minimal image; go-git over HTTPS, the
 # local filesystem sink, and the object-store sinks (s3/gcs) all work. ca-certificates and tzdata
 # ship in the distroless base, so TLS to sink endpoints works out of the box.
-FROM gcr.io/distroless/static:nonroot@sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99
+FROM gcr.io/distroless/static:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
 WORKDIR /
 COPY --from=builder /workspace/kollect-pipeline /kollect-pipeline
 USER 65532:65532
