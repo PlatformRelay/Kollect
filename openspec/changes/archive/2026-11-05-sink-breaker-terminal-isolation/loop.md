@@ -1,7 +1,7 @@
 # Loop — sink-breaker-terminal-isolation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-breaker-terminal-isolation` · Branch: `fix/sink-breaker-terminal-isolation` · Base: `origin/main` @ `96c41b0d0` · Started: 2026-11-05 · Reviewers: two-model duo
-Next: 4.1 integrator — push, PR, merge on green CI, post-merge evidence, archive
+Next: done — merged in #532 (`850df538d`, main CI green by headSha), archived 2026-11-05 (`evidence/post-merge.md`)
 Task prompt: local, `agent-context/loops/sink-breaker-terminal-isolation/task-prompt.md` (harness, not committed) · decisions by model alignment, logged in agent-context/decisions.md
 Budget: paid review legs 4/12 (counted from legs.log: R1, R2, B1, B2 spec legs; no per-task paid leg) (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-05) · per task estimate 0 legs (no extra-leg trigger expected: no secrets, CI, infra or manifests), R 1, B 2 → planned 3
 
