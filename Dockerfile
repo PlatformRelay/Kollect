@@ -34,7 +34,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags
 # Runtime image: Debian slim with git + openssh-client for file:// git remotes and git ls-remote probes.
 # The only git export engine is go-git (default, ADR-0803), which does not require the git binary; the
 # file:// CLI machinery and connection probes do.
-FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
 
 RUN apt-get update && \
     apt-get upgrade -y && \
