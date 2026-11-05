@@ -134,6 +134,6 @@ Test rules for every group:
 
 ## 4. Integration
 
-- [ ] 4.1 Integrator (orchestrator): branch review (stage B), PR with the release-note line, merge on
+- [x] 4.1 Integrator (orchestrator): branch review (stage B), PR with the release-note line, merge on
   review + green CI, post-merge evidence, archive the change, update BACKLOG (SINK-BREAKER-TENANT-01,
   RACE-COUNT-BREAKER-ISOLATION).
