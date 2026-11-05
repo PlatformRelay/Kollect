@@ -208,7 +208,10 @@ func TestClusterInventory_CeilingChangeWithinDebounceWindowReExports(t *testing.
 // export must increment kollect_export_debounced_total for KollectClusterInventory, so cluster
 // debounce decisions are visible to dashboards/alerts exactly like the namespaced path.
 func TestClusterInventory_DebouncedExportIncrementsMetric(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the assertion reads the process-global
+	// kollect_export_debounced_total counter as a delta, so no other test may
+	// increment the same {controller=KollectClusterInventory} label
+	// concurrently (a parallel debounced cluster export made the delta 2).
 
 	const (
 		sinkNS = sink.DefaultSecretNamespace
