@@ -171,7 +171,7 @@ func prepareOwnedPrune(fs billy.Filesystem, cfg Config, written []string) (*owne
 		return nil, nil
 	}
 	if len(cfg.PruneOwner) > 4096 {
-		return nil, invalidPrune("prune owner exceeds 4096 bytes")
+		return nil, ownershipConflict("prune owner exceeds 4096 bytes")
 	}
 	owners, records, total, err := loadPruneRecords(fs)
 	if err != nil {
@@ -255,17 +255,24 @@ func invalidPrune(format string, args ...any) error {
 	return kollecterrors.Terminal(fmt.Errorf(format, args...))
 }
 
+// ownershipConflict is invalidPrune for a rejection about the exporting inventory's own paths or
+// ownership claim. It is marked inventory-scoped so the per-sink circuit breaker does not count it;
+// a rejection caused by shared prune metadata stays on invalidPrune and still counts.
+func ownershipConflict(format string, args ...any) error {
+	return kollecterrors.InventoryScoped(fmt.Errorf(format, args...))
+}
+
 func validateOwnedPrunePaths(fs billy.Filesystem, cfg Config, written []string, owners map[string]string) (map[string]struct{}, error) {
 	keep := pruneKeepSet(cfg, written)
 	if len(keep) > maxPrunePaths {
-		return nil, invalidPrune("prune inventory exceeds %d paths", maxPrunePaths)
+		return nil, ownershipConflict("prune inventory exceeds %d paths", maxPrunePaths)
 	}
 	current := pathSet(keep)
 	// Written paths must be present in an explicit union; otherwise the ownership
 	// record would silently omit data just written by this export.
 	for _, p := range written {
 		if _, ok := current[p]; !ok {
-			return nil, invalidPrune("written path %q missing from prune keep set", p)
+			return nil, ownershipConflict("written path %q missing from prune keep set", p)
 		}
 	}
 	for p := range current {
@@ -307,7 +314,7 @@ func checkForeignClaim(cfg Config, owners map[string]string, p string) error {
 }
 
 func foreignClaimError(p, owner string) error {
-	return invalidPrune("prune path %q belongs to another inventory: %s, ownership record %s",
+	return ownershipConflict("prune path %q belongs to another inventory: %s, ownership record %s",
 		p, describePruneOwner(owner), pruneRecordPath(owner))
 }
 

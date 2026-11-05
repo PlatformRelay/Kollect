@@ -63,7 +63,7 @@ func checkMergeTargetClaims(repo *git.Repository, targetRef plumbing.ReferenceNa
 			continue
 		}
 
-		return invalidPrune("prune path %q belongs to another inventory on merge target branch %q: %s, ownership record %s",
+		return ownershipConflict("prune path %q belongs to another inventory on merge target branch %q: %s, ownership record %s",
 			p, targetBranch, describePruneOwner(owner), pruneRecordPath(owner))
 	}
 
