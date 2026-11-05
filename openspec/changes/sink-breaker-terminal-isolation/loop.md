@@ -1,9 +1,9 @@
 # Loop — sink-breaker-terminal-isolation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-breaker-terminal-isolation` · Branch: `fix/sink-breaker-terminal-isolation` · Base: `origin/main` @ `96c41b0d0` · Started: 2026-11-05 · Reviewers: two-model duo
-Next: R spec-set review
+Next: R spec-set review round 2
 Task prompt: local, `agent-context/loops/sink-breaker-terminal-isolation/task-prompt.md` (harness, not committed) · decisions by model alignment, logged in agent-context/decisions.md
-Budget: paid review legs 0/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-05) · per task estimate 0 legs (no extra-leg trigger expected: no secrets, CI, infra or manifests), R 1, B 2 → planned 3
+Budget: paid review legs 1/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-05) · per task estimate 0 legs (no extra-leg trigger expected: no secrets, CI, infra or manifests), R 1, B 2 → planned 3
 
 Backlog SINK-BREAKER-TENANT-01 (P2) and RACE-COUNT-BREAKER-ISOLATION (P3). Spec set: proposal.md,
 design.md, specs/sink-circuit-breaker/spec.md, tasks.md. Decision 2026-11-05 `sink-breaker-terminal`
@@ -13,7 +13,7 @@ design.md, specs/sink-circuit-breaker/spec.md, tasks.md. Decision 2026-11-05 `si
 
 - [x] 0 orient — new change; file:line references measured against `origin/main` @ `96c41b0d0` (2026-11-05). Open PRs touching these files: none (#523 mongo-driver v2 touches `internal/sink/mongodb/` only; #520 helm v4 CI only)
 - [x] P plan + tasks — written; `task spec:validate` green (22 items); spec set committed: (this commit)
-- [ ] R spec-set review — `reviews/R-spec-set/`
+- [ ] R spec-set review — round 1 on `a505029da`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; all 8 findings verified and fixed (`reviews/R-spec-set/verification.md`); CRITICAL had a mechanical fix both legs named → round 2 (last) on the fix commit
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/`
 - [ ] Hand-off — `pr-description.md`
@@ -35,6 +35,13 @@ Holistic run at B: not yet run.
 
 | Stage | Finding (one line) | Sev | Reviewers | Disposition (fix / reject / defer) | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| R1 | Parallel test resets every breaker key; `-count` reuses keys | CRITICAL | reviewer-a, reviewer-b | fix | design isolation rules, tasks rules, 1.2 | no |
+| R1 | Mutable timeout seam races | WARNING | reviewer-a, reviewer-b | fix | design: constructor seam only | no |
+| R1 | Cited Terminal errors return before the breaker | WARNING | reviewer-a, reviewer-b | fix | proposal, design three zones, 0.1 | no |
+| R1 | Classification boundary, Forbidden, inferred Terminal unspecified | WARNING | reviewer-a, reviewer-b | fix | SCB-1/SCB-2 text + scenarios, cases 1d/2c/2d | no |
+| R1 | SCB-3a proves no state; no concurrent trial | WARNING | reviewer-a | fix | SCB-3a/3b `State()`, SCB-3c | no |
+| R1 | Flake mechanism overstated | WARNING | reviewer-a, reviewer-b | fix | proposal, 2.1 ten runs, 2.2 always | no |
+| R1 | Docs "self-closes after timeout"; Terminal trial keeps half-open | NOTE | reviewer-a, reviewer-b | fix | 3.1 wording; SCB-3 accepted consequence | no |
 
 ## Tasks
 

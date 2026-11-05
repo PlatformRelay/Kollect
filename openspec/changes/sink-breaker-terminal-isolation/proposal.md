@@ -11,8 +11,10 @@ fast with a Transient "sink circuit breaker open" error.
 The breaker counts **every** non-nil error from the export as a failure, Terminal ones included
 (gobreaker's default `IsSuccessful` returns false for any non-nil error; `Settings` sets neither
 `IsSuccessful` nor `IsExcluded`). Terminal errors are raised inside the export for problems that
-belong to one inventory: a Git ownership rejection (`internal/sink/git/prune_owned.go:255`), an
-identity/path mismatch, an oversized payload (`internal/sink/export.go:117-173`). Five such
+belong to one inventory, most visibly the Git ownership/prune rejection
+(`internal/sink/git/prune_owned.go:255`), raised from inside the export plan. (Identity, payload,
+layout and backend-acquire errors return before the breaker, `internal/sink/export.go:86-190`, and
+never reach it; only errors returned by `plan.run` at `export.go:200` do.) Five such
 rejections from one misconfigured inventory open the breaker for every healthy inventory on the same
 sink for 30 s (backlog SINK-BREAKER-TENANT-01, found by the #412 review 2026-10-04).
 
@@ -21,11 +23,14 @@ This contradicts the documented design: ADR-0602 says the breaker is "per sink/d
 opens after "5 consecutive transient failures per sink key"
 (`docs/operator-manual/troubleshooting.md:214`).
 
-The same root cause makes `go test -race -count=3 -skip TestControllers ./internal/controller/`
-flaky (backlog RACE-COUNT-BREAKER-ISOLATION, P3): repeated runs of
-`TestKollectInventoryReconciler_terminalTotalExportFailureDoesNotRequeue` record terminal failures
-against the shared `default/postgres-demo` breaker until it opens, and the next test that exports to
-that key gets "breaker open" instead of its own outcome (4 of 6 base runs failed, no DATA RACE).
+A related flake: `go test -race -count=3 -skip TestControllers ./internal/controller/` fails in four
+reconciler tests (backlog RACE-COUNT-BREAKER-ISOLATION, P3; 4 of 6 base runs failed 2026-10, no DATA
+RACE, not yet re-measured). Those tests share the `default/postgres-demo` breaker through
+`newExportFailureReconciler` (`internal/controller/kollectinventory_export_test.go:339-375`): the
+Terminal-failure test, the Transient-failure test and successful exports all record against one key,
+so whether it opens depends on the mix and order of outcomes. Excluding Terminal results removes one
+contributor; the Transient test still contributes, so this change re-measures the flake and isolates
+the tests if it persists (tasks group 2).
 
 A Terminal error is never retried, so counting it protects no backend; it only widens one
 inventory's failure to the whole sink.
@@ -67,8 +72,13 @@ None.
 - Docs: `docs/operator-manual/troubleshooting.md:214`, `docs/adr/0602-error-taxonomy.md:38`
   (clarifying note, not a new ADR).
 - Behaviour visible to users: a misconfigured inventory no longer opens the breaker for other
-  inventories on its sink. A sink-wide Terminal error (e.g. a CA misconfiguration) no longer opens
-  the breaker either; it was never retried, and it stays visible in each inventory's status.
+  inventories on its sink. A sink-wide Terminal error returned during the export (e.g. a BigQuery
+  authorization failure classified Terminal in `internal/sink/bigquery/errors.go`) no longer opens
+  the breaker either; it was never retried, and it stays visible in each inventory's status. Export
+  error metrics are recorded after the breaker (`export.go:203-212`) and are unchanged. A Terminal
+  result on the half-open trial leaves the breaker half-open, so one misconfigured inventory can keep
+  a recovering sink admitting one trial at a time until another export's trial succeeds or fails
+  retryably; bounded and stated in SCB-3.
 - Release note: v0.22.x / next minor, under fixes.
 
 ## Non-goals
