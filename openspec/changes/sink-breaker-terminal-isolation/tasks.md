@@ -99,8 +99,10 @@ Test rules for every group:
 - [ ] 2.2 Isolate the reconciler tests built on `newExportFailureReconciler` and the other tests that
   share the `default/postgres-demo` key from each other's breaker state, without changing what they
   assert: a per-invocation sink name where no assertion names the sink; otherwise a non-parallel test
-  that calls `sink.ResetBreakersForTest()` at its start and in `t.Cleanup`. Never a retry. Ten green
-  runs of the 2.1 command afterwards. — 2.1 closed 2026-11-05; 2.2 isolation landed, open on its ten-green clause (decision request), evidence: evidence/G2.md
+  that calls `sink.ResetBreakersForTest()` at its start and in `t.Cleanup`. Never a retry. Also make
+  `TestClusterInventory_DebouncedExportIncrementsMetric` non-parallel with a comment (it reads a
+  process-global counter as a delta; precedent `terminalCleanupIncrementsMetric`; added after G2
+  round 1, decision in loop.md *Triage*). Ten green runs of the 2.1 command afterwards. — 2.1 closed 2026-11-05; 2.2 isolation landed, open on its ten-green clause (decision request), evidence: evidence/G2.md
 
 ## 3. Docs
 
