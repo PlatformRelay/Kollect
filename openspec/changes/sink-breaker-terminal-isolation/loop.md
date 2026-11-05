@@ -1,9 +1,9 @@
 # Loop — sink-breaker-terminal-isolation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-breaker-terminal-isolation` · Branch: `fix/sink-breaker-terminal-isolation` · Base: `origin/main` @ `96c41b0d0` · Started: 2026-11-05 · Reviewers: two-model duo
-Next: L — dispatch T0.1 (probe)
+Next: L — dispatch B1.1 (branch review fixes)
 Task prompt: local, `agent-context/loops/sink-breaker-terminal-isolation/task-prompt.md` (harness, not committed) · decisions by model alignment, logged in agent-context/decisions.md
-Budget: paid review legs 2/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-05) · per task estimate 0 legs (no extra-leg trigger expected: no secrets, CI, infra or manifests), R 1, B 2 → planned 3
+Budget: paid review legs 3/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-05) · per task estimate 0 legs (no extra-leg trigger expected: no secrets, CI, infra or manifests), R 1, B 2 → planned 3
 
 Backlog SINK-BREAKER-TENANT-01 (P2) and RACE-COUNT-BREAKER-ISOLATION (P3). Spec set: proposal.md,
 design.md, specs/sink-circuit-breaker/spec.md, tasks.md. Decision 2026-11-05 `sink-breaker-terminal`
@@ -14,8 +14,8 @@ design.md, specs/sink-circuit-breaker/spec.md, tasks.md. Decision 2026-11-05 `si
 - [x] 0 orient — new change; file:line references measured against `origin/main` @ `96c41b0d0` (2026-11-05). Open PRs touching these files: none (#523 mongo-driver v2 touches `internal/sink/mongodb/` only; #520 helm v4 CI only)
 - [x] P plan + tasks — written; `task spec:validate` green (22 items); spec set committed: (this commit)
 - [x] R spec-set review — round 1 on `a505029da`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; all 8 findings verified and fixed (`reviews/R-spec-set/verification.md`); CRITICAL had a mechanical fix both legs named → round 2 (last) on `de1e7df12`: reviewer-a REQUEST_CHANGES, reviewer-b BLOCK; new CRITICAL (Git sink-wide Terminal reaches the breaker; A's premise false) settled by decision rerun → B (unanimous), spec set rewritten for B; 7 WARNING/NOTE fixed (`reviews/R-spec-set/round-2/verification.md`). No third round (limit); premises re-verified in T0.1, rewritten set reviewed again at B
-- [ ] L task loop — see *Tasks*
-- [ ] B branch review — `reviews/B-branch/round-N/`
+- [x] L task loop — see *Tasks* (T0.1, G1, G2, G3 closed; B1.1 from stage B)
+- [ ] B branch review — round 1 on `4e50a9a2f` (rebased on main after #520/#523): reviewer-a CONCERNS, reviewer-b CONCERNS, no CRITICAL; SCB-1..3 hold; 6 fix (B1.1 + spec wording), 1 defer, 2 reject (`reviews/B-branch/round-1/verification.md`). Next: B1.1, then round 2 + per-commit gate
 - [ ] Hand-off — `pr-description.md`
 
 ## Fitness functions
@@ -29,7 +29,7 @@ design.md, specs/sink-circuit-breaker/spec.md, tasks.md. Decision 2026-11-05 `si
 | OpenSpec strict | `task spec:validate` | triggered | green | per spec-set edit |
 | Full local gate | `task check` | holistic | green on base, minus known environment reds | at B |
 
-Holistic run at B: not yet run.
+Holistic run at B: `task check` on `4e50a9a2f` exit 1; four gates red, none from this branch (git-ignored mkdocs cache hit, `kubectl` shim, two `operator-sdk` guards; the last three red on clean `origin/main` too). Details `reviews/B-branch/round-1/verification.md`.
 
 ## Triage
 
@@ -49,6 +49,12 @@ Holistic run at B: not yet run.
 | R2 | SCB-3 reds not on target assertion | WARNING | reviewer-b | fix | 1.1 refactor base | no |
 | R2 | G2 red rule; reset only in cleanup; path-branching stub | NOTE | reviewer-a, reviewer-b | fix | tasks preamble, 2.1, 2.2, design | no |
 | L G2 | 2.1 race command also flakes on `TestClusterInventory_DebouncedExportIncrementsMetric` (parallel test reading a global counter delta), 1 in 10 | WARNING | reviewer-a (P1), task agent | fix (option A, by fact check: one line with in-repo precedent `kollectinventory_finalizer_test.go:974`; B weakens the criterion and leaves a known flake) | tasks.md 2.2 extended | no |
+| B1 | Only one routed raise site pinned by a test | WARNING | reviewer-a, reviewer-b | fix | B1.1 | no |
+| B1 | go-git engine return path untested | WARNING | reviewer-b | fix | B1.1, design *Risks* | no |
+| B1 | Race command in test rules fails on Ginkgo | WARNING | reviewer-a | fix | tasks.md test rules | no |
+| B1 | Green-at-every-commit claim; T0.1 cleanup wording; marker always Terminal | NOTE | reviewer-a, reviewer-b | fix | tasks.md, B1.1, SCB-1 text | no |
+| B1 | `ErrTooManyRequests` logged as "git transport" for every sink | NOTE | reviewer-b | defer | backlog SINK-BREAKER-TOOMANY-MSG | no |
+| B1 | Own-path rejections at undecided sites still count; marked trial keeps half-open | NOTE | reviewer-a, reviewer-b | reject | spec fallback; accepted consequence (proposal *Impact*) | no |
 
 ## Tasks
 

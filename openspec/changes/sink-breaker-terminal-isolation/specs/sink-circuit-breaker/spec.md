@@ -7,7 +7,7 @@
 The shared per-sink circuit breaker SHALL exclude an export plan result that carries the
 inventory-scoped marker (`errors.Is(err, kollecterrors.ErrInventoryScoped)`): it SHALL count neither
 as a failure nor as a success, and SHALL NOT reset the consecutive-failure count. The marker SHALL
-keep the error's Terminal class and its text.
+make the error Terminal and keep its text.
 
 #### Scenario: One inventory's ownership rejections do not open the breaker
 
