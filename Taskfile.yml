@@ -36,6 +36,8 @@ vars:
   # renovate: datasource=github-releases depName=norwoodj/helm-docs
   HELM_DOCS_VERSION: v1.14.2
   HELM_DOCS_BIN: "{{.BIN_DIR}}/helm-docs"
+  # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
+  HELM_UNITTEST_VERSION: v1.2.1
   COVERAGE_MIN: "90"
   MANAGER_BINARY: "{{.BIN_DIR}}/manager"
   PIPELINE_BINARY: "{{.BIN_DIR}}/kollect-pipeline"
@@ -433,6 +435,11 @@ tasks:
       - test -x {{.HELM_DOCS_BIN}}
     cmds:
       - bash hack/install-helm-docs.sh {{.HELM_DOCS_VERSION}} {{.HELM_DOCS_BIN}}
+
+  tools:helm-unittest:
+    desc: Install the pinned helm-unittest plugin ({{.HELM_UNITTEST_VERSION}}) into helm's plugin dir
+    cmds:
+      - bash hack/install-helm-unittest.sh {{.HELM_UNITTEST_VERSION}}
 
   helm-docs:
     desc: Regenerate charts/kollect/README.md from values.yaml
