@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -238,6 +239,7 @@ func TestKollectInventoryReconciler_recordsLastExportPaths(t *testing.T) {
 
 func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	t.Parallel()
+	sinkName := uniqueSinkName(t, "postgres-demo")
 
 	store := collect.NewStore()
 	store.Upsert(collect.Item{
@@ -260,7 +262,7 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "postgres-demo", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
@@ -273,7 +275,7 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 		},
 	}
 
@@ -325,7 +327,7 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	if len(got.Status.SinkExports) != 1 {
 		t.Fatalf("SinkExports = %d, want 1", len(got.Status.SinkExports))
 	}
-	wantName := string(kollectdevv1alpha1.SinkFamilyDatabase) + "/postgres-demo"
+	wantName := string(kollectdevv1alpha1.SinkFamilyDatabase) + "/" + sinkName
 	if got.Status.SinkExports[0].Name != wantName {
 		t.Fatalf("sink export name = %q, want %s", got.Status.SinkExports[0].Name, wantName)
 	}
@@ -334,10 +336,25 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	}
 }
 
+// sinkNameSeq makes sink names unique per test invocation. The sink circuit
+// breaker is process-wide and keyed by sink namespace/name, so tests that
+// share a sink name share one breaker: parallel siblings, and -count=N reruns,
+// add their failures to it and can open it for a test that expects an export.
+var sinkNameSeq atomic.Uint64
+
+// uniqueSinkName returns base with a per-invocation suffix, for a sink whose
+// breaker no other test (or earlier run of this test) touches.
+func uniqueSinkName(t *testing.T, base string) string {
+	t.Helper()
+
+	return fmt.Sprintf("%s-%d", base, sinkNameSeq.Add(1))
+}
+
 // newExportFailureReconciler builds a reconciler whose single postgres sink
 // always fails export with exportErr.
 func newExportFailureReconciler(t *testing.T, exportErr error) (*KollectInventoryReconciler, client.Client) {
 	t.Helper()
+	sinkName := uniqueSinkName(t, "postgres-demo")
 
 	store := collect.NewStore()
 	store.Upsert(collect.Item{
@@ -359,7 +376,7 @@ func newExportFailureReconciler(t *testing.T, exportErr error) (*KollectInventor
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "postgres-demo", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
@@ -372,7 +389,7 @@ func newExportFailureReconciler(t *testing.T, exportErr error) (*KollectInventor
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 		},
 	}
 
