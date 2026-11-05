@@ -43,7 +43,7 @@ Test rules for every group:
 
 ## 1. Inventory-scoped results are excluded from the breaker (SCB-1, SCB-2, SCB-3)
 
-- [ ] 1.1 Refactor base first, in the same group: extract `newBreaker(key, timeout)` from `breakerFor`
+- [x] 1.1 Refactor base first, in the same group: extract `newBreaker(key, timeout)` from `breakerFor`
   with today's settings (pure refactor, existing tests green), and add `ErrInventoryScoped`,
   `InventoryScoped` and `IsInventoryScoped` with no-op bodies (`InventoryScoped` returns its input).
   Then the tests (red on that base unless marked *control*):
@@ -82,12 +82,12 @@ Test rules for every group:
   - SCB-3c: half-open breaker; a trial blocks on a channel; a second concurrent call does not run its
     function and returns an error; release the trial with a marked result; a third call runs ·
     exposes a marked trial wedging the slot. *Control* for the concurrency half on base.
-- [ ] 1.2 Implement the marker (`design.md` *Marker*), route exactly the 5 inventory-scoped sites from T0.1
+- [x] 1.2 Implement the marker (`design.md` *Marker*), route exactly the 5 inventory-scoped sites from T0.1
   table (a) through the new helper (undecided sites stay unmarked), set `IsExcluded: kollecterrors.IsInventoryScoped` in
   `newBreaker`, and make `TestResetBreakersForTest_clearsOpenBreaker` non-parallel. Mutations, each
   killed by a named case: drop `IsExcluded` (SCB-1a); `IsSuccessful` instead (SCB-1c, SCB-3a);
   exclude `IsTerminal` (SCB-2d, SCB-2f); exclude every non-nil error (SCB-2a); marker drops `Unwrap`
-  (M-1); one routed site reverted to `invalidPrune` (SCB-1e).
+  (M-1); one routed site reverted to `invalidPrune` (SCB-1e). — 1.1 and 1.2 closed 2026-11-05, evidence: evidence/G1.md
 
 ## 2. Reconciler tests stop sharing a tripped breaker (RACE-COUNT-BREAKER-ISOLATION)
 

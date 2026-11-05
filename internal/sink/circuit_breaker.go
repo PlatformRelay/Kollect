@@ -48,18 +48,25 @@ func breakerFor(key string) *gobreaker.CircuitBreaker[struct{}] {
 		return existing.(*gobreaker.CircuitBreaker[struct{}])
 	}
 
-	br := gobreaker.NewCircuitBreaker[struct{}](gobreaker.Settings{
+	actual, _ := breakerRegistry.LoadOrStore(key, newBreaker(key, circuitBreakerTimeout))
+	return actual.(*gobreaker.CircuitBreaker[struct{}])
+}
+
+// newBreaker holds every breaker setting. The timeout is a parameter so tests can build a
+// short-timeout breaker under their own key; production always passes circuitBreakerTimeout.
+func newBreaker(key string, timeout time.Duration) *gobreaker.CircuitBreaker[struct{}] {
+	return gobreaker.NewCircuitBreaker[struct{}](gobreaker.Settings{
 		Name:        key,
 		MaxRequests: 1,
 		Interval:    circuitBreakerInterval,
-		Timeout:     circuitBreakerTimeout,
+		Timeout:     timeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			return counts.ConsecutiveFailures >= circuitBreakerTripAt
 		},
+		// A failure about one inventory (an ownership conflict) neither counts nor resets the
+		// streak, so it cannot open the breaker for every other inventory on the sink.
+		IsExcluded: kollecterrors.IsInventoryScoped,
 	})
-
-	actual, _ := breakerRegistry.LoadOrStore(key, br)
-	return actual.(*gobreaker.CircuitBreaker[struct{}])
 }
 
 // ResetBreakersForTest clears per-sink circuit breakers between tests. It

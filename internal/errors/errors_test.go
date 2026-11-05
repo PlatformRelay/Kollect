@@ -144,3 +144,41 @@ func TestClassifyAPIBranches(t *testing.T) {
 		t.Fatal("ClassError with nil Class should default to transient")
 	}
 }
+
+// TestInventoryScoped (M-1): the marker keeps the Terminal class, the text and the wrapped chain,
+// and a plain Terminal is not inventory-scoped.
+func TestInventoryScoped(t *testing.T) {
+	t.Parallel()
+
+	base := errors.New("owner record")
+	inner := fmt.Errorf("prune path %q belongs to another inventory: %w", "a.yaml", base)
+	marked := InventoryScoped(inner)
+
+	if !IsTerminal(marked) {
+		t.Fatalf("ClassOf(InventoryScoped(e)) = %q, want %q", ClassOf(marked), ClassTerminal)
+	}
+	if !IsInventoryScoped(marked) || !errors.Is(marked, ErrInventoryScoped) {
+		t.Fatalf("InventoryScoped(e) is not inventory-scoped: %v", marked)
+	}
+	if !errors.Is(marked, inner) || !errors.Is(marked, base) {
+		t.Fatal("InventoryScoped(e) dropped the wrapped chain")
+	}
+	if marked.Error() != inner.Error() {
+		t.Fatalf("InventoryScoped(e).Error() = %q, want %q", marked.Error(), inner.Error())
+	}
+	notFound := apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, "x")
+	var status *apierrors.StatusError
+	if !errors.As(InventoryScoped(notFound), &status) {
+		t.Fatal("errors.As through InventoryScoped did not reach the wrapped StatusError")
+	}
+	if InventoryScoped(nil) != nil {
+		t.Fatal("InventoryScoped(nil) != nil")
+	}
+	if IsInventoryScoped(Terminal(inner)) || IsInventoryScoped(nil) {
+		t.Fatal("a plain Terminal (or nil) reports inventory-scoped")
+	}
+	wrapped := fmt.Errorf("export to %q: %w", "sink", marked)
+	if !IsInventoryScoped(wrapped) || !IsTerminal(wrapped) {
+		t.Fatal("a %w re-wrap lost the marker or the class")
+	}
+}

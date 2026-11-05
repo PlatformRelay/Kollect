@@ -147,3 +147,32 @@ func Format(class error, format string, args ...any) error {
 
 	return &ClassError{Class: class, Err: msg}
 }
+
+// ErrInventoryScoped marks an export failure that is about one inventory (its own paths or its
+// ownership claim), not about the sink. The per-sink circuit breaker does not count it.
+var ErrInventoryScoped = errors.New("inventory-scoped")
+
+// InventoryScoped marks err as Terminal and inventory-scoped. The result keeps err's text and
+// its errors.Is/errors.As chain, so status messages and logs do not change.
+func InventoryScoped(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return Terminal(&inventoryScopedError{err: err})
+}
+
+// IsInventoryScoped reports whether err carries the inventory-scoped marker.
+func IsInventoryScoped(err error) bool {
+	return errors.Is(err, ErrInventoryScoped)
+}
+
+type inventoryScopedError struct {
+	err error
+}
+
+func (e *inventoryScopedError) Error() string { return e.err.Error() }
+
+func (e *inventoryScopedError) Unwrap() error { return e.err }
+
+func (e *inventoryScopedError) Is(target error) bool { return target == ErrInventoryScoped }
