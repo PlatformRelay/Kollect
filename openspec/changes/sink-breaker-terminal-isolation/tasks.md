@@ -5,8 +5,9 @@ Red first. Each group's test task comes before its implementation and records it
 a compile error or a skip. "Red on base" means red on the group's refactor base: for G1, `origin/main`
 plus the pure `newBreaker` extraction and the marker API stubs named in 1.1; for G2, the G1 commit. A
 stub with the signature from `design.md` and a `not implemented` body (a no-op that returns its input
-unmarked) is in scope so tests compile. Each group closes in one commit (tests and implementation),
-so the tree is green at every commit. A case marked *control* is expected green on its base and is
+unmarked) is in scope so tests compile. Each group closes in one commit (tests and implementation), so no
+commit deliberately carries a red test; flakes inherited from the base stay until the group that
+fixes them (G2 for the breaker-sharing and debounce-metric flakes). A case marked *control* is expected green on its base and is
 recorded as a control, not a red. G2 may close without a red when its target is preventive (see 2.1);
 it says so in its evidence.
 
@@ -18,7 +19,8 @@ Test rules for every group:
   key unique per test invocation (`-count` safe). No parallel test calls `ResetBreakersForTest`. The
   only timeout seam is the `newBreaker(key, timeout)` constructor; half-open tests follow the timing
   protocol in `design.md` *Testing approach*; no test writes a package variable.
-- Each group records `go test -race -count=3 ./internal/errors/ ./internal/sink/... ./internal/controller/`
+- Each group records `go test -race -count=3 ./internal/errors/ ./internal/sink/...`,
+  `go test -race -count=3 -skip TestControllers ./internal/controller/` (Ginkgo refuses `-count>1`),
   and `task lint`.
 - Mutations are judged by the test command's exit status, with one no-op control that must survive;
   mutant trees live outside the repository.
@@ -114,6 +116,21 @@ Test rules for every group:
   `docs/adr/0602-error-taxonomy.md:38`: add a dated note on what counts (ADR not re-decided). `task
   lint:markdown` 0 issues; `rg -n 'circuit breaker' docs` reviewed for any other claim the change
   contradicts, the list recorded in `evidence/G3.md`. — closed 2026-11-05, evidence: evidence/G3.md
+
+## B1. Branch review round 1 fixes
+
+- [ ] B1.1 Marker regression per site (branch review round 1, both reviewers): a table test in
+  `internal/sink/git` asserting `kollecterrors.IsInventoryScoped(err) && kollecterrors.IsTerminal(err)`
+  for every site routed through the inventory-scoped helper (`prune_owned.go` and `prune_target.go`;
+  list them from the code at HEAD), driven through the functions that raise them (e.g.
+  `checkMergeTargetClaims`, `prepareOwnedPrune`), plus one boundary case through the go-git engine
+  (non-`file://` path, `exportRemoteInWorkdir`) next to SCB-1e's CLI-engine case, or, if the go-git
+  engine cannot be driven without a network remote, a unit case on the go-git return path that shows
+  the marker survives `ClassifyExportError` and say so. Mutation: revert each site to `invalidPrune`
+  one at a time; each must be killed by the new table. Also: the doc comment on `InventoryScoped`
+  says it always yields Terminal (whatever the input's class); `evidence/T0.1.md`'s cleanup statement
+  is narrowed (Git/GitLab ownership release and snapshot deletion bypass the breaker; relational
+  cleanup goes through `RunExportEnvelope`, `internal/sink/cleanup.go:379`).
 
 ## 4. Integration
 

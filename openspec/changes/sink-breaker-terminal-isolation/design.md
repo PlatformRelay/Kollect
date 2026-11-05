@@ -65,7 +65,10 @@ Breaker: `IsExcluded: kollecterrors.IsInventoryScoped`.
   TotalExclusions < MaxRequests`. An excluded trial leaves the state half-open and frees the slot; the
   next request is admitted as the trial. A success closes the breaker; a counted failure re-opens it.
 - `ErrTooManyRequests` (a second concurrent request in half-open) is returned unwrapped from
-  `exportThroughBreaker` and becomes Transient in `classifyExportFailure`. Unchanged.
+  `exportThroughBreaker`, passes `git.ClassifyExportError` (for every sink type, `export.go:208`),
+  where it is wrapped Transient as "git transport: too many requests", then `classifyExportFailure`.
+  Pre-existing and out of scope (misleading message only; class is Transient); deferred to the
+  backlog.
 
 ## Testing approach
 
@@ -100,7 +103,8 @@ State is read with `breakerFor(key).State()` immediately after each call.
 ## Risks
 
 - The marker is lost by a re-wrap without `Unwrap` between the raise site and the breaker: covered by
-  SCB-1e through the real Git backend.
+  SCB-1e through the real Git backend (CLI engine) and B1.1 (per-site table and the go-git
+  return path).
 - A shared-state rejection marked as inventory-scoped would stop shedding load for a sink-wide fault:
   T0.1's per-site classification, reviewed in G1.
 - A test that relies on ownership rejections tripping the breaker would now fail; none is known
