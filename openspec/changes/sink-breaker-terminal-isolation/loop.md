@@ -53,6 +53,7 @@ Holistic run at B: not yet run.
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
+| T0.1 | CLOSED | reviewer-a APPROVE (1 P2 fixed), 1 round, no paid leg (`reviews/L-tasks/T0.1/`) | none; 2 non-blocking spec wording corrections (25 not 26 `invalidPrune` call sites; proposal *Impact* misses `git/prune_target.go`), see `evidence/T0.1.md` *Spec corrections*. Race on base: 2/10 red |
 
 ## Known red
 
@@ -69,6 +70,10 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 |---|---|---|---|
 
 ## Lessons
+
+- T0.1: G1 marks exactly 5 sites (`prune_owned.go:174,261,268,310`, `prune_target.go:66`); 7 sites are undecided (shared helpers `prune_owned.go:53,57,77,80,83` called for own paths and shared metadata; capacity sites `:215,:230`) and stay unmarked.
+- T0.1: `identityRemote.export` (`internal/sink/inventory_identity_test.go:85`) resets every breaker before each export and uses the fixed key `default/identity-git`; SCB-1e must call `RunExportEnvelope` directly with a per-invocation sink name, non-parallel.
+- T0.1: gobreaker `Counts()` does not advance state; call `State()` before reading counts after a time step.
 
 ## Where a human should look first
 
