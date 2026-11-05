@@ -347,6 +347,7 @@ task vulncheck     # govulncheck (CI vulncheck job)
 task format        # go fmt ./...
 task format:check  # fail if gofmt or goimports would change files
 task helm-test     # helm lint + helm-docs drift + unittest
+task tools:helm-unittest  # install the pinned helm-unittest plugin (CI does the same)
 task helm-docs     # regenerate charts/kollect/README.md
 task lint:markdown # markdownlint-cli2 on docs/**/*.md
 ```
