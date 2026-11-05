@@ -56,7 +56,7 @@ Holistic run at B: not yet run.
 |---|---|---|---|
 | T0.1 | CLOSED | reviewer-a APPROVE (1 P2 fixed), 1 round, no paid leg (`reviews/L-tasks/T0.1/`) | none; 2 non-blocking spec wording corrections (25 not 26 `invalidPrune` call sites; proposal *Impact* misses `git/prune_target.go`), see `evidence/T0.1.md` *Spec corrections*. Race on base: 2/10 red |
 | G1 (1.1 + 1.2) | CLOSED | reviewer-a APPROVE (1 P2 evidence wording fixed), 1 round, no paid leg (`reviews/L-tasks/G1/`) | none; race row split: Ginkgo `TestControllers` refuses `-count=3`, run with `-skip TestControllers` |
-| G2 (2.1 + 2.2) | 2.1 CLOSED; 2.2 BLOCKED (decision) | reviewer-a REQUEST_CHANGES (P1: 9/10 green misses 2.2's "ten green runs"; P2 evidence wording fixed), 1 round, no paid leg (`reviews/L-tasks/G2/`) | isolation committed: 0 breaker reds in 10 runs (base 3/10); 1 red from `TestClusterInventory_DebouncedExportIncrementsMetric` (metric-delta flake, not the breaker). Decision: A widen 2.2 to make that test non-parallel (recommended) or B revise the clause and file a backlog item; `evidence/G2.md` *Decision request* |
+| G2 (2.1 + 2.2) | CLOSED | round 1 reviewer-a REQUEST_CHANGES (P1 9/10 green missed 2.2's clause → decision A; P2 evidence wording fixed); round 2 reviewer-a APPROVE; no paid leg (`reviews/L-tasks/G2/`, `round-2/`) | none. Base 3/10 red (shared `default/postgres-demo`); after per-invocation sink names and the debounce-metric test made non-parallel: 10/10 green |
 
 ## Known red
 
