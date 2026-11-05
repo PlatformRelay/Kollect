@@ -119,7 +119,7 @@ Test rules for every group:
 
 ## B1. Branch review round 1 fixes
 
-- [ ] B1.1 Marker regression per site (branch review round 1, both reviewers): a table test in
+- [x] B1.1 Marker regression per site (branch review round 1, both reviewers): a table test in
   `internal/sink/git` asserting `kollecterrors.IsInventoryScoped(err) && kollecterrors.IsTerminal(err)`
   for every site routed through the inventory-scoped helper (`prune_owned.go` and `prune_target.go`;
   list them from the code at HEAD), driven through the functions that raise them (e.g.
@@ -130,7 +130,7 @@ Test rules for every group:
   one at a time; each must be killed by the new table. Also: the doc comment on `InventoryScoped`
   says it always yields Terminal (whatever the input's class); `evidence/T0.1.md`'s cleanup statement
   is narrowed (Git/GitLab ownership release and snapshot deletion bypass the breaker; relational
-  cleanup goes through `RunExportEnvelope`, `internal/sink/cleanup.go:379`).
+  cleanup goes through `RunExportEnvelope`, `internal/sink/cleanup.go:379`). — closed 2026-11-05, evidence: evidence/B1.md
 
 ## 4. Integration
 

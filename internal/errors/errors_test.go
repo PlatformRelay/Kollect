@@ -182,3 +182,23 @@ func TestInventoryScoped(t *testing.T) {
 		t.Fatal("a %w re-wrap lost the marker or the class")
 	}
 }
+
+// TestInventoryScoped_alwaysTerminal (B1.1, the InventoryScoped doc comment): the marker makes any
+// input Terminal; the input's own class sentinel stays reachable through errors.Is.
+func TestInventoryScoped_alwaysTerminal(t *testing.T) {
+	t.Parallel()
+
+	for name, in := range map[string]error{
+		"transient": Transient(errors.New("dial")),
+		"forbidden": Forbidden(errors.New("denied")),
+		"plain":     errors.New("plain"),
+	} {
+		marked := InventoryScoped(in)
+		if ClassOf(marked) != ClassTerminal || !IsTerminal(marked) || IsTransient(marked) || IsForbidden(marked) {
+			t.Fatalf("%s: ClassOf(InventoryScoped(e)) = %q, want %q", name, ClassOf(marked), ClassTerminal)
+		}
+	}
+	if !errors.Is(InventoryScoped(Transient(errors.New("dial"))), ErrTransient) {
+		t.Fatal("InventoryScoped hid the input's class sentinel from errors.Is")
+	}
+}

@@ -64,6 +64,7 @@ Holistic run at B: `task check` on `4e50a9a2f` exit 1; four gates red, none from
 | G1 (1.1 + 1.2) | CLOSED | reviewer-a APPROVE (1 P2 evidence wording fixed), 1 round, no paid leg (`reviews/L-tasks/G1/`) | none; race row split: Ginkgo `TestControllers` refuses `-count=3`, run with `-skip TestControllers` |
 | G2 (2.1 + 2.2) | CLOSED | round 1 reviewer-a REQUEST_CHANGES (P1 9/10 green missed 2.2's clause → decision A; P2 evidence wording fixed); round 2 reviewer-a APPROVE; no paid leg (`reviews/L-tasks/G2/`, `round-2/`) | none. Base 3/10 red (shared `default/postgres-demo`); after per-invocation sink names and the debounce-metric test made non-parallel: 10/10 green |
 | G3 (3.1) | CLOSED | reviewer-a REQUEST_CHANGES (2 P1 operator-wording over-claims, verified and fixed, no new round); no paid leg (`reviews/L-tasks/G3/`) | none. `task docs:verify` not-run (host `kubectl` shim); strict mkdocs build, docs unit contracts and doc guards green instead |
+| B1 (B1.1) | CLOSED | reviewer-a APPROVE, no findings, 1 round, no paid leg (`reviews/L-tasks/B1/`) | none. No base red by design (test-strengthening); proof is mutants M1-M7 (each routed site) + M8 (doc claim), control M0 survives |
 
 ## Known red
 
@@ -89,6 +90,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G2: the ten-run race loop is probabilistic and cannot kill a mutant; a deterministic sensor for breaker sharing is `-count=3 -run` over only the tests whose backend fails (no success between iterations to reset the streak): 5 counted failures in iteration 1 open a shared breaker.
 - G2: `TestClusterInventory_DebouncedExportIncrementsMetric` is a separate parallel metric-delta flake in the same race command (~1/10); a red there is not the breaker.
 - G3: `task docs:verify` can fail on a missing mise `kubectl` version before its mkdocs step; build strict from a scratch venv of `docs/requirements-docs.txt` and run `test/docs` unit contracts plus the guards naming the edited files.
+- B1: go-git engine tests run offline by calling `exportRemoteInWorkdir` directly on a local bare repo (`file://`); only `ExportFilesWithBranch` routes `file://` to the CLI engine.
+- B1: per-site marker table `TestOwnershipConflict_everyRoutedSiteIsInventoryScoped` (`internal/sink/git/prune_scoped_marker_test.go`) lists routed sites with their line as of `7a26657c0`; a new `ownershipConflict` site needs a row there.
 
 ## Where a human should look first
 

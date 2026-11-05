@@ -152,8 +152,10 @@ func Format(class error, format string, args ...any) error {
 // ownership claim), not about the sink. The per-sink circuit breaker does not count it.
 var ErrInventoryScoped = errors.New("inventory-scoped")
 
-// InventoryScoped marks err as Terminal and inventory-scoped. The result keeps err's text and
-// its errors.Is/errors.As chain, so status messages and logs do not change.
+// InventoryScoped marks err as inventory-scoped and always makes it Terminal, whatever class err
+// carried before: ClassOf and IsTerminal report Terminal for a Transient or Forbidden input too (the
+// outer class wins; the inner class sentinel stays reachable through errors.Is). The result keeps
+// err's text and its errors.Is/errors.As chain, so status messages and logs do not change.
 func InventoryScoped(err error) error {
 	if err == nil {
 		return nil
