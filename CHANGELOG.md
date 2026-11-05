@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Keep inventory-scoped failures out of the breaker [36ed675](https://github.com/platformrelay/kollect/commit/36ed675315b79f7d83e0ee3d5599aa7c50aff1bd)
+
 - **ci:** Keep the Renovate label from cancelling the extended e2e run [ae5ea8d](https://github.com/platformrelay/kollect/commit/ae5ea8d6eb34bb076b0793a388abfb948e54b9ff)
 
 - **ci:** Refuse Node and proxy overrides in the Renovate workflow [fe1ea25](https://github.com/platformrelay/kollect/commit/fe1ea250d281c9d41d6f12ba99b9ccd0b2b9e23a)
