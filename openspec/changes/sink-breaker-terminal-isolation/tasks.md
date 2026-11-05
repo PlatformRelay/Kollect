@@ -25,7 +25,7 @@ Test rules for every group:
 
 ## 0. Probe
 
-- [ ] 0.1 Verify the load-bearing claims in `proposal.md` and `design.md` on `origin/main` and record
+- [x] 0.1 Verify the load-bearing claims in `proposal.md` and `design.md` on `origin/main` and record
   each with file:line or command output in `evidence/T0.1.md`: the breaker settings and key; that
   gobreaker v2.4.0 `IsExcluded` neither counts nor resets `ConsecutiveFailures`, frees the half-open
   slot, and that the 60 s `Interval` resets closed-state counts; the three zones in `design.md`
@@ -39,7 +39,7 @@ Test rules for every group:
   RACE-COUNT-BREAKER-ISOLATION on base (`go test -race -count=3 -skip TestControllers
   ./internal/controller/`, ten runs, exit status each, failing test names); a flake that does not
   reproduce in ten runs is recorded as "not reproduced", not as "mechanism disproved". A claim that
-  does not hold stops the loop with a decision request.
+  does not hold stops the loop with a decision request. — closed 2026-11-05, evidence: evidence/T0.1.md
 
 ## 1. Inventory-scoped results are excluded from the breaker (SCB-1, SCB-2, SCB-3)
 
