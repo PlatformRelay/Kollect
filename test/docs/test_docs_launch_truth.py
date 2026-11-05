@@ -56,6 +56,14 @@ class DocsLaunchTruthTest(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / rel, target)
         self.current = released_version((self.repo / "CHANGELOG.md").read_text(encoding="utf-8"))
+        # In a release-prep tree the chart and the docs already name the next GA while the
+        # changelog still names the previous one. The cases below start from a released state,
+        # so model the tag that the prep PR precedes: give the fixture changelog that heading.
+        chart = (self.repo / "charts/kollect/Chart.yaml").read_text(encoding="utf-8")
+        chart_version = re.search(r"(?m)^version: (\S+)$", chart).group(1)
+        if "-" not in chart_version and chart_version != self.current:
+            self.add_changelog_heading(chart_version)
+            self.current = chart_version
 
     def run_check(self) -> subprocess.CompletedProcess:
         return subprocess.run(
