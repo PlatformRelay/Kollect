@@ -27,6 +27,7 @@ import (
 
 func TestKollectClusterInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer(t *testing.T) {
 	t.Parallel()
+	sinkName := uniqueSinkName(t, "postgres-demo")
 
 	scheme := runtime.NewScheme()
 	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
@@ -37,7 +38,7 @@ func TestKollectClusterInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "postgres-demo", Namespace: "kollect-system"},
+		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: "kollect-system"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
@@ -55,7 +56,7 @@ func TestKollectClusterInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer
 			DeletionTimestamp: &now,
 		},
 		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
-			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 		},
 	}
 
@@ -113,6 +114,7 @@ func TestKollectClusterInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer
 // 12-hour informer resync.
 func TestKollectClusterInventoryReconciler_terminalCleanupDoesNotRequeue(t *testing.T) {
 	t.Parallel()
+	sinkName := uniqueSinkName(t, "postgres-demo")
 
 	scheme := runtime.NewScheme()
 	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
@@ -123,7 +125,7 @@ func TestKollectClusterInventoryReconciler_terminalCleanupDoesNotRequeue(t *test
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "postgres-demo", Namespace: "kollect-system"},
+		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: "kollect-system"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
@@ -141,7 +143,7 @@ func TestKollectClusterInventoryReconciler_terminalCleanupDoesNotRequeue(t *test
 			DeletionTimestamp: &now,
 		},
 		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
-			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 		},
 	}
 
@@ -277,6 +279,7 @@ func TestKollectClusterInventoryReconciler_deleteWithMissingSinkRemovesFinalizer
 // EC-P1-03 counterpart: transient cleanup failures keep the error-driven retry.
 func TestKollectClusterInventoryReconciler_transientCleanupStillRetries(t *testing.T) {
 	t.Parallel()
+	sinkName := uniqueSinkName(t, "postgres-demo")
 
 	scheme := runtime.NewScheme()
 	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
@@ -287,7 +290,7 @@ func TestKollectClusterInventoryReconciler_transientCleanupStillRetries(t *testi
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "postgres-demo", Namespace: "kollect-system"},
+		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: "kollect-system"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
@@ -305,7 +308,7 @@ func TestKollectClusterInventoryReconciler_transientCleanupStillRetries(t *testi
 			DeletionTimestamp: &now,
 		},
 		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
-			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 		},
 	}
 

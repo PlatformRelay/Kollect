@@ -55,6 +55,7 @@ Holistic run at B: not yet run.
 |---|---|---|---|
 | T0.1 | CLOSED | reviewer-a APPROVE (1 P2 fixed), 1 round, no paid leg (`reviews/L-tasks/T0.1/`) | none; 2 non-blocking spec wording corrections (25 not 26 `invalidPrune` call sites; proposal *Impact* misses `git/prune_target.go`), see `evidence/T0.1.md` *Spec corrections*. Race on base: 2/10 red |
 | G1 (1.1 + 1.2) | CLOSED | reviewer-a APPROVE (1 P2 evidence wording fixed), 1 round, no paid leg (`reviews/L-tasks/G1/`) | none; race row split: Ginkgo `TestControllers` refuses `-count=3`, run with `-skip TestControllers` |
+| G2 (2.1 + 2.2) | 2.1 CLOSED; 2.2 BLOCKED (decision) | reviewer-a REQUEST_CHANGES (P1: 9/10 green misses 2.2's "ten green runs"; P2 evidence wording fixed), 1 round, no paid leg (`reviews/L-tasks/G2/`) | isolation committed: 0 breaker reds in 10 runs (base 3/10); 1 red from `TestClusterInventory_DebouncedExportIncrementsMetric` (metric-delta flake, not the breaker). Decision: A widen 2.2 to make that test non-parallel (recommended) or B revise the clause and file a backlog item; `evidence/G2.md` *Decision request* |
 
 ## Known red
 
@@ -77,6 +78,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - T0.1: gobreaker `Counts()` does not advance state; call `State()` before reading counts after a time step.
 - G1: the controller package's Ginkgo suite refuses `-count>1` (package FAIL, no test failure); every `-count=3` command naming `./internal/controller/` needs `-skip TestControllers`.
 - G1: a stub snapshot backend receives `objectstore.ObjectPath(...)`, not `req.ObjectPath`; branch a stub on the inventory name. Breaker test helpers `uniqueBreakerKey`/`uniqueBreakerName`/`stubExportRequest`/`halfOpenBreaker` live in `internal/sink/circuit_breaker_test.go` for G2 to reuse.
+- G2: the ten-run race loop is probabilistic and cannot kill a mutant; a deterministic sensor for breaker sharing is `-count=3 -run` over only the tests whose backend fails (no success between iterations to reset the streak): 5 counted failures in iteration 1 open a shared breaker.
+- G2: `TestClusterInventory_DebouncedExportIncrementsMetric` is a separate parallel metric-delta flake in the same race command (~1/10); a red there is not the breaker.
 
 ## Where a human should look first
 

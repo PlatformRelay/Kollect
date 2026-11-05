@@ -91,7 +91,7 @@ Test rules for every group:
 
 ## 2. Reconciler tests stop sharing a tripped breaker (RACE-COUNT-BREAKER-ISOLATION)
 
-- [ ] 2.1 On the G1 commit run `go test -race -count=3 -skip TestControllers ./internal/controller/`
+- [x] 2.1 On the G1 commit run `go test -race -count=3 -skip TestControllers ./internal/controller/`
   ten times and record each exit status, against T0.1's base count. Any red → name the failing tests
   and the breaker key they share; that red is the group's red. All ten green → record "not
   reproduced; isolation is preventive" (the tests still share `default/postgres-demo`); 2.2 runs
@@ -100,7 +100,7 @@ Test rules for every group:
   share the `default/postgres-demo` key from each other's breaker state, without changing what they
   assert: a per-invocation sink name where no assertion names the sink; otherwise a non-parallel test
   that calls `sink.ResetBreakersForTest()` at its start and in `t.Cleanup`. Never a retry. Ten green
-  runs of the 2.1 command afterwards.
+  runs of the 2.1 command afterwards. — 2.1 closed 2026-11-05; 2.2 isolation landed, open on its ten-green clause (decision request), evidence: evidence/G2.md
 
 ## 3. Docs
 
