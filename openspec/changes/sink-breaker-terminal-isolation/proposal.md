@@ -68,8 +68,8 @@ None.
 
 ## Impact
 
-- Code: `internal/errors/errors.go` (marker, constructor, predicate), `internal/sink/git/prune_owned.go`
-  (marked ownership rejections), `internal/sink/circuit_breaker.go` (`newBreaker`, `IsExcluded`).
+- Code: `internal/errors/errors.go` (marker, constructor, predicate), `internal/sink/git/prune_owned.go` and
+  `prune_target.go` (marked ownership rejections, the 5 sites in `evidence/T0.1.md` table a), `internal/sink/circuit_breaker.go` (`newBreaker`, `IsExcluded`).
 - Tests: `internal/errors`, `internal/sink/circuit_breaker_test.go`, a Git-backend boundary test, and
   the `internal/controller` tests named in RACE-COUNT-BREAKER-ISOLATION.
 - Docs: `docs/operator-manual/troubleshooting.md:214`, `docs/adr/0602-error-taxonomy.md:38`
