@@ -31,7 +31,7 @@ Test rules for every group:
   slot, and that the 60 s `Interval` resets closed-state counts; the three zones in `design.md`
   *Context*; that Git auth/protected-branch errors reach the breaker Terminal; that a failed export is
   attempted again on the next event-driven reconcile (cite the code path). Then the two tables
-  design.md *Marker* depends on: (a) every one of the 26 `invalidPrune` call sites and every other
+  design.md *Marker* depends on: (a) every one of the 25 `invalidPrune` call sites and every other
   Terminal raised inside an export plan (Git, GitLab, object-store and database backends), each
   classified inventory-scoped / sink-wide / undecided with a one-line reason; (b) every caller of
   `ResetBreakersForTest` and whether its test is parallel. Name the local-repository fixture that
@@ -62,7 +62,7 @@ Test rules for every group:
     call still runs its function; when it fails T, the seventh does not run and returns a Transient
     error containing "circuit breaker open" · red on base because X counts; after the fix it exposes
     an implementation that resets the streak on exclusion (`IsSuccessful`).
-  - SCB-1e (boundary, real Git backend): with the fixture T0.1 names, an ownership rejection returned
+  - SCB-1e (boundary, real Git backend, not parallel): with the fixture T0.1 names (`identityRemote`), calling `RunExportEnvelope` directly with a per-invocation sink name (its `export` helper resets every breaker), an ownership rejection returned
     by `RunExportEnvelope` is Terminal and inventory-scoped, and after 6 such rejections a different
     inventory's export to the same sink runs · exposes a marker lost between `invalidPrune`'s
     replacement and the breaker, or a site left unmarked.
@@ -82,8 +82,8 @@ Test rules for every group:
   - SCB-3c: half-open breaker; a trial blocks on a channel; a second concurrent call does not run its
     function and returns an error; release the trial with a marked result; a third call runs ·
     exposes a marked trial wedging the slot. *Control* for the concurrency half on base.
-- [ ] 1.2 Implement the marker (`design.md` *Marker*), route the inventory-scoped sites from T0.1
-  table (a) through the new helper, set `IsExcluded: kollecterrors.IsInventoryScoped` in
+- [ ] 1.2 Implement the marker (`design.md` *Marker*), route exactly the 5 inventory-scoped sites from T0.1
+  table (a) through the new helper (undecided sites stay unmarked), set `IsExcluded: kollecterrors.IsInventoryScoped` in
   `newBreaker`, and make `TestResetBreakersForTest_clearsOpenBreaker` non-parallel. Mutations, each
   killed by a named case: drop `IsExcluded` (SCB-1a); `IsSuccessful` instead (SCB-1c, SCB-3a);
   exclude `IsTerminal` (SCB-2d, SCB-2f); exclude every non-nil error (SCB-2a); marker drops `Unwrap`

@@ -18,7 +18,7 @@ Three zones (`internal/sink/export.go`):
   protected-branch and pre-receive rejections arrive Terminal (`git/errors.go:35-42`); BigQuery and
   MongoDB classify some write errors Terminal (`bigquery/errors.go`, `mongodb/errors.go`). The
   ownership/prune rejection arrives Terminal through `invalidPrune` (`git/prune_owned.go:254-256`,
-  26 call sites).
+  25 call sites).
 - **After the breaker** (`:207-212`): `git.ClassifyExportError` again and `classifyExportFailure`,
   for errors the plan returned unclassified.
 
@@ -44,7 +44,7 @@ In `internal/errors`:
   not change).
 - `func IsInventoryScoped(err error) bool { return errors.Is(err, ErrInventoryScoped) }`.
 
-At the raise sites: T0.1 classifies the 26 `invalidPrune` calls and every other Terminal raised inside
+At the raise sites: T0.1 classifies the 25 `invalidPrune` calls and every other Terminal raised inside
 an export plan as inventory-scoped (about the inventory's own paths or its ownership claim) or
 sink-wide/shared (e.g. corrupt or unreadable prune metadata, repository state). G1 routes the
 inventory-scoped ones through a new helper (e.g. `ownershipConflict(format, args...)` returning
