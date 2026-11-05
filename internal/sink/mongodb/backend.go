@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
@@ -67,12 +67,12 @@ func (a mongoCollectionAdmin) EnsureUniqueIndex(ctx context.Context, keys bson.D
 }
 
 type deleteManyCollection interface {
-	DeleteMany(context.Context, interface{}, ...*options.DeleteOptions) (*mongo.DeleteResult, error)
+	DeleteMany(context.Context, interface{}, ...options.Lister[options.DeleteManyOptions]) (*mongo.DeleteResult, error)
 }
 
 type exportCollection interface {
-	ReplaceOne(context.Context, interface{}, interface{}, ...*options.ReplaceOptions) (*mongo.UpdateResult, error)
-	DeleteMany(context.Context, interface{}, ...*options.DeleteOptions) (*mongo.DeleteResult, error)
+	ReplaceOne(context.Context, interface{}, interface{}, ...options.Lister[options.ReplaceOptions]) (*mongo.UpdateResult, error)
+	DeleteMany(context.Context, interface{}, ...options.Lister[options.DeleteManyOptions]) (*mongo.DeleteResult, error)
 }
 
 // NewBackend constructs a MongoDB sink backend.
@@ -99,7 +99,7 @@ func NewBackend(
 		return nil, err
 	}
 
-	client, err := mongo.Connect(connectCtx, opts)
+	client, err := mongo.Connect(opts)
 	if err != nil {
 		return nil, fmt.Errorf("mongodb connect: %w", err)
 	}

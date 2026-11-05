@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 )
