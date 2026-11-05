@@ -1,9 +1,9 @@
 # Loop — sink-breaker-terminal-isolation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-breaker-terminal-isolation` · Branch: `fix/sink-breaker-terminal-isolation` · Base: `origin/main` @ `96c41b0d0` · Started: 2026-11-05 · Reviewers: two-model duo
-Next: L — dispatch B1.1 (branch review fixes)
+Next: 4.1 integrator — push, PR, merge on green CI, post-merge evidence, archive
 Task prompt: local, `agent-context/loops/sink-breaker-terminal-isolation/task-prompt.md` (harness, not committed) · decisions by model alignment, logged in agent-context/decisions.md
-Budget: paid review legs 3/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-05) · per task estimate 0 legs (no extra-leg trigger expected: no secrets, CI, infra or manifests), R 1, B 2 → planned 3
+Budget: paid review legs 4/12 (counted from legs.log: R1, R2, B1, B2 spec legs; no per-task paid leg) (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-05) · per task estimate 0 legs (no extra-leg trigger expected: no secrets, CI, infra or manifests), R 1, B 2 → planned 3
 
 Backlog SINK-BREAKER-TENANT-01 (P2) and RACE-COUNT-BREAKER-ISOLATION (P3). Spec set: proposal.md,
 design.md, specs/sink-circuit-breaker/spec.md, tasks.md. Decision 2026-11-05 `sink-breaker-terminal`
@@ -15,8 +15,8 @@ design.md, specs/sink-circuit-breaker/spec.md, tasks.md. Decision 2026-11-05 `si
 - [x] P plan + tasks — written; `task spec:validate` green (22 items); spec set committed: (this commit)
 - [x] R spec-set review — round 1 on `a505029da`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; all 8 findings verified and fixed (`reviews/R-spec-set/verification.md`); CRITICAL had a mechanical fix both legs named → round 2 (last) on `de1e7df12`: reviewer-a REQUEST_CHANGES, reviewer-b BLOCK; new CRITICAL (Git sink-wide Terminal reaches the breaker; A's premise false) settled by decision rerun → B (unanimous), spec set rewritten for B; 7 WARNING/NOTE fixed (`reviews/R-spec-set/round-2/verification.md`). No third round (limit); premises re-verified in T0.1, rewritten set reviewed again at B
 - [x] L task loop — see *Tasks* (T0.1, G1, G2, G3 closed; B1.1 from stage B)
-- [ ] B branch review — round 1 on `4e50a9a2f` (rebased on main after #520/#523): reviewer-a CONCERNS, reviewer-b CONCERNS, no CRITICAL; SCB-1..3 hold; 6 fix (B1.1 + spec wording), 1 defer, 2 reject (`reviews/B-branch/round-1/verification.md`). Next: B1.1, then round 2 + per-commit gate
-- [ ] Hand-off — `pr-description.md`
+- [x] B branch review — round 1 on `4e50a9a2f` (rebased on main after #520/#523): reviewer-a CONCERNS, reviewer-b CONCERNS, no CRITICAL; SCB-1..3 hold; 6 fix (B1.1 + spec wording), 1 defer, 2 reject (`reviews/B-branch/round-1/verification.md`). B1.1 closed. Round 2 (last) on `d243fd5f4`: reviewer-a APPROVE, reviewer-b CLEAN (one NOTE, wording fixed after round 2, not reviewed again); per-commit gate green on all 12 commits; final-tree gates green (`reviews/B-branch/round-2/verification.md`)
+- [x] Hand-off — 2026-11-05 · `pr-description.md` · PR: opened by the integrator (4.1)
 
 ## Fitness functions
 
@@ -95,10 +95,19 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 
 ## Where a human should look first
 
+- `internal/sink/circuit_breaker.go` · `IsExcluded: kollecterrors.IsInventoryScoped` — the failure-policy change
+- `internal/errors/errors.go` · `InventoryScoped` always yields Terminal; text and chain kept
+- `internal/sink/git/prune_owned.go`, `prune_target.go` · which rejections are marked (7 routed sites); undecided sites stay counted
+- `internal/controller/*_test.go` · test changes: per-invocation sink names (9 tests), debounce metric test now serial
+- `docs/operator-manual/troubleshooting.md:214`, `docs/adr/0602-error-taxonomy.md` · operator-facing description of what counts
+
 ## Proposed harness changes
 
 | Lesson | Seen in | Proposed change (AGENTS.md line / sensor / close-task.yml) |
 |---|---|---|
+| Ginkgo in `internal/controller` refuses `-count>1` | G1, G2, B1 | AGENTS.local.md gotcha line: every `-count=N` on `./internal/controller/` needs `-skip TestControllers`, Ginkgo suite run separately |
+| A fresh worktree has no `bin/k8s`, so envtest `BeforeSuite` fails there | per-commit gate (B2) | AGENTS.local.md: set `KUBEBUILDER_ASSETS` to the main checkout's `bin/k8s/<ver>` in throwaway worktrees |
+| A ten-run probabilistic loop cannot kill a mutant | G2 | spec-loop test-task guidance: pair any N-run flake gate with a deterministic `-count=3 -run` sensor |
 
 ## Owner tasks (skipped by the loop)
 
