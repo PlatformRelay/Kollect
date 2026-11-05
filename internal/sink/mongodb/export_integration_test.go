@@ -15,9 +15,9 @@ import (
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
@@ -335,7 +335,7 @@ func TestExportMongoDB_existingProvisioningModeSuccess(t *testing.T) {
 		collection = "preexisting"
 	)
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -764,21 +764,21 @@ func documentAttribute(
 	}
 	filter["source_uid"] = sourceUID
 
-	var doc struct {
-		Payload map[string]any `bson:"payload"`
-	}
-	if err := coll.FindOne(ctx, filter).Decode(&doc); err != nil {
+	// Read the stored BSON directly: driver v2 decodes nested documents in an
+	// `any` to bson.D, so a map[string]any assertion would depend on the decoder.
+	raw, err := coll.FindOne(ctx, filter).Raw()
+	if err != nil {
 		return 0, err
 	}
 
-	attrs, ok := doc.Payload["attributes"].(map[string]any)
-	if !ok {
-		return 0, fmt.Errorf("payload attributes missing for uid %s", sourceUID)
+	if _, err := raw.LookupErr("payload", "attributes"); err != nil {
+		return 0, fmt.Errorf("payload attributes missing for uid %s: %w", sourceUID, err)
 	}
 
-	value, ok := attrs[attr].(float64)
+	field := raw.Lookup("payload", "attributes", attr)
+	value, ok := field.DoubleOK()
 	if !ok {
-		return 0, fmt.Errorf("attribute %q type = %T, want float64", attr, attrs[attr])
+		return 0, fmt.Errorf("attribute %q BSON type = %s, want double", attr, field.Type)
 	}
 
 	return value, nil

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
@@ -35,7 +35,7 @@ func TestConnection(
 		return err
 	}
 
-	client, err := mongo.Connect(probeCtx, opts)
+	client, err := mongo.Connect(opts)
 	if err != nil {
 		return fmt.Errorf("mongodb connect: %w", err)
 	}

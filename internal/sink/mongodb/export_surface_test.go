@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/platformrelay/kollect/internal/collect"
 )
@@ -29,7 +29,7 @@ func (f *fakeExportCollection) ReplaceOne(
 	_ context.Context,
 	filter interface{},
 	_ interface{},
-	_ ...*options.ReplaceOptions,
+	_ ...options.Lister[options.ReplaceOptions],
 ) (*mongo.UpdateResult, error) {
 	f.replaceCalls++
 	if m, ok := filter.(bson.M); ok {
@@ -44,7 +44,7 @@ func (f *fakeExportCollection) ReplaceOne(
 func (f *fakeExportCollection) DeleteMany(
 	_ context.Context,
 	filter interface{},
-	_ ...*options.DeleteOptions,
+	_ ...options.Lister[options.DeleteManyOptions],
 ) (*mongo.DeleteResult, error) {
 	f.deleteCalls++
 	if m, ok := filter.(bson.M); ok {
@@ -106,10 +106,7 @@ func TestBackend_Export_classifiesReplaceError(t *testing.T) {
 func TestBackend_Close_disconnectsClient(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
-	defer cancel()
-
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://127.0.0.1:1"))
+	client, err := mongo.Connect(options.Client().ApplyURI("mongodb://127.0.0.1:1"))
 	if err != nil {
 		t.Fatalf("mongo.Connect: %v", err)
 	}
