@@ -48,6 +48,7 @@ Holistic run at B: not yet run.
 | R2 | Half-open timing flakes | WARNING | reviewer-a, reviewer-b | fix | design timing protocol | no |
 | R2 | SCB-3 reds not on target assertion | WARNING | reviewer-b | fix | 1.1 refactor base | no |
 | R2 | G2 red rule; reset only in cleanup; path-branching stub | NOTE | reviewer-a, reviewer-b | fix | tasks preamble, 2.1, 2.2, design | no |
+| L G2 | 2.1 race command also flakes on `TestClusterInventory_DebouncedExportIncrementsMetric` (parallel test reading a global counter delta), 1 in 10 | WARNING | reviewer-a (P1), task agent | fix (option A, by fact check: one line with in-repo precedent `kollectinventory_finalizer_test.go:974`; B weakens the criterion and leaves a known flake) | tasks.md 2.2 extended | no |
 
 ## Tasks
 
