@@ -36,6 +36,12 @@ Additional rules:
 - No `panic` in reconcilers; entrypoint `recover` → requeue + Event.
 - Context deadlines on all external calls; never log secrets or full payloads.
 - Circuit breaker (`gobreaker`) per sink/doc backend for `ErrTransient` storms.
+  *Note 2026-11-05:* the breaker counts more than `ErrTransient`. Every failure the sink
+  backend returns while writing an export counts (transient, forbidden, unclassified, and
+  sink-wide terminal errors such as Git auth or protected-branch rejections), except a result
+  marked inventory-scoped (today a Git ownership conflict on one inventory's own paths), which
+  counts neither as a failure nor as a success. The decision above is unchanged; see the
+  troubleshooting guide for thresholds and recovery.
 
 Conditions follow Kubernetes conventions: `Ready`, `Synced`, `Degraded` with `observedGeneration`.
 

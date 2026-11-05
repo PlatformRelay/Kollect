@@ -106,14 +106,14 @@ Test rules for every group:
 
 ## 3. Docs
 
-- [ ] 3.1 `docs/operator-manual/troubleshooting.md:214`: the breaker opens after 5 consecutive counted
+- [x] 3.1 `docs/operator-manual/troubleshooting.md:214`: the breaker opens after 5 consecutive counted
   export failures per sink key (Transient, Forbidden, sink-wide Terminal such as Git auth); a failure
   that is about one inventory (ownership conflict) does not count and stays in that inventory's status.
   Replace "self-closes after timeout": after 30 s one trial export is admitted, success closes it, a
   counted failure re-opens it, an inventory-scoped result leaves it half-open.
   `docs/adr/0602-error-taxonomy.md:38`: add a dated note on what counts (ADR not re-decided). `task
   lint:markdown` 0 issues; `rg -n 'circuit breaker' docs` reviewed for any other claim the change
-  contradicts, the list recorded in `evidence/G3.md`.
+  contradicts, the list recorded in `evidence/G3.md`. — closed 2026-11-05, evidence: evidence/G3.md
 
 ## 4. Integration
 
