@@ -8,11 +8,20 @@ req.SinkName`. `breakerFor` lazily creates one `gobreaker.CircuitBreaker[struct{
 process-wide `sync.Map` with `MaxRequests: 1`, `Interval: 60s`, `Timeout: 30s` and `ReadyToTrip:
 ConsecutiveFailures >= 5`.
 
-Errors reaching the breaker are whatever `plan.run` returns. Some are already classified
-`kollecterrors.Terminal` inside the export (ownership, identity, payload, CA/TLS configuration,
-backend-specific Terminal classification in `bigquery/errors.go`, `mongodb/errors.go`). Others are
-classified only after the breaker by `git.ClassifyExportError` and `classifyExportFailure`
-(`export.go:207-212`), e.g. Git auth failures; those count as failures today and keep counting.
+Three zones (`internal/sink/export.go`):
+
+- **Before the breaker** (`:79-190`): registry/spec checks, inventory identity (`:86`), backend
+  acquire incl. construction and CA/TLS config (`:92-110`), payload decode, size and layout. These
+  return early and never touch the breaker. Unchanged.
+- **At the breaker** (`:200`): whatever `plan.run` returns. The class is
+  `kollecterrors.ClassOf(err)` (`internal/errors/errors.go:86-108`): an explicit `ClassError`, else a
+  Kubernetes API status (NotFound/Invalid/BadRequest → Terminal, Forbidden → Forbidden), else
+  Transient. Terminal results here include the Git ownership/prune rejection
+  (`git/prune_owned.go:255`) and backend-classified write errors (`bigquery/errors.go`,
+  `mongodb/errors.go`).
+- **After the breaker** (`:207-212`): `git.ClassifyExportError` and `classifyExportFailure`. Errors
+  that become Terminal only here (e.g. Git auth failures, `git/errors.go:35-36`) were not Terminal at
+  the breaker and keep counting.
 
 ## Option chosen
 
@@ -38,13 +47,25 @@ registry needs eviction). Decision record: `agent-context/decisions.md` 2026-11-
 
 ## Testing approach
 
-Unit tests drive `exportThroughBreaker` directly with unique keys per test (the registry is
-process-wide; unique keys keep `t.Parallel()` safe) and one boundary test drives `RunExportEnvelope`
+Unit tests drive `exportThroughBreaker` directly and one boundary test drives `RunExportEnvelope`
 with a stub backend, as `TestRunExportEnvelope_circuitBreakerTripsAfterRepeatedFailures` does
-(`circuit_breaker_test.go:26`). Half-open cases need the 30 s timeout to elapse; the test must not
-sleep 30 s. The implementation may make the timeout overridable for tests through an unexported
-package variable or a constructor parameter, read once at breaker creation; it must not change the
-production value.
+(`circuit_breaker_test.go:26`).
+
+Isolation. The registry is process-wide and `ResetBreakersForTest` clears every key
+(`circuit_breaker.go:68-70`). Rules: (1) a key is unique per test *invocation*, not per test name,
+because `-count=N` reruns a test against the breakers its earlier run left behind (e.g. `t.Name()`
+plus a package-level atomic counter); (2) no `t.Parallel()` test calls `ResetBreakersForTest`, so
+the existing `TestResetBreakersForTest_clearsOpenBreaker` (`circuit_breaker_test.go:95-96`, parallel,
+resets at `:155`) becomes non-parallel in G1. The other callers (`release_on_delete_test.go`,
+`inventory_identity_test.go`, `git/owned_prune_fuzz_test.go`) are checked in G1 for the same rule and
+listed in the evidence.
+
+Timeout seam. Half-open cases must not sleep 30 s. The only allowed seam is a constructor:
+`newBreaker(key string, timeout time.Duration)`, which `breakerFor` calls with
+`circuitBreakerTimeout`; a test builds a short-timeout breaker and stores it under its own unique key
+with `breakerRegistry.LoadOrStore` before the first call. No mutable package variable (a write from
+one parallel test is a data race with `breakerFor` in another and would leak into their breakers).
+State assertions read `breakerFor(key).State()`.
 
 ## Risks
 
