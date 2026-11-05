@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install a pinned Helm 3 release with SHA256-verified tarball download.
+# Install a pinned Helm release with SHA256-verified tarball download.
 # Checksums from https://get.helm.sh/helm-${VERSION}-${OS}-${ARCH}.tar.gz.sha256
 # Usage: HELM_VERSION=v4.3.1 hack/install-helm.sh [install-dir]
 set -euo pipefail
