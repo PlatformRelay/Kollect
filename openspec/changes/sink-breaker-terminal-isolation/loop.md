@@ -57,6 +57,7 @@ Holistic run at B: not yet run.
 | T0.1 | CLOSED | reviewer-a APPROVE (1 P2 fixed), 1 round, no paid leg (`reviews/L-tasks/T0.1/`) | none; 2 non-blocking spec wording corrections (25 not 26 `invalidPrune` call sites; proposal *Impact* misses `git/prune_target.go`), see `evidence/T0.1.md` *Spec corrections*. Race on base: 2/10 red |
 | G1 (1.1 + 1.2) | CLOSED | reviewer-a APPROVE (1 P2 evidence wording fixed), 1 round, no paid leg (`reviews/L-tasks/G1/`) | none; race row split: Ginkgo `TestControllers` refuses `-count=3`, run with `-skip TestControllers` |
 | G2 (2.1 + 2.2) | CLOSED | round 1 reviewer-a REQUEST_CHANGES (P1 9/10 green missed 2.2's clause → decision A; P2 evidence wording fixed); round 2 reviewer-a APPROVE; no paid leg (`reviews/L-tasks/G2/`, `round-2/`) | none. Base 3/10 red (shared `default/postgres-demo`); after per-invocation sink names and the debounce-metric test made non-parallel: 10/10 green |
+| G3 (3.1) | CLOSED | reviewer-a REQUEST_CHANGES (2 P1 operator-wording over-claims, verified and fixed, no new round); no paid leg (`reviews/L-tasks/G3/`) | none. `task docs:verify` not-run (host `kubectl` shim); strict mkdocs build, docs unit contracts and doc guards green instead |
 
 ## Known red
 
@@ -81,6 +82,7 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G1: a stub snapshot backend receives `objectstore.ObjectPath(...)`, not `req.ObjectPath`; branch a stub on the inventory name. Breaker test helpers `uniqueBreakerKey`/`uniqueBreakerName`/`stubExportRequest`/`halfOpenBreaker` live in `internal/sink/circuit_breaker_test.go` for G2 to reuse.
 - G2: the ten-run race loop is probabilistic and cannot kill a mutant; a deterministic sensor for breaker sharing is `-count=3 -run` over only the tests whose backend fails (no success between iterations to reset the streak): 5 counted failures in iteration 1 open a shared breaker.
 - G2: `TestClusterInventory_DebouncedExportIncrementsMetric` is a separate parallel metric-delta flake in the same race command (~1/10); a red there is not the breaker.
+- G3: `task docs:verify` can fail on a missing mise `kubectl` version before its mkdocs step; build strict from a scratch venv of `docs/requirements-docs.txt` and run `test/docs` unit contracts plus the guards naming the edited files.
 
 ## Where a human should look first
 
