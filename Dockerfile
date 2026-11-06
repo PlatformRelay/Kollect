@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.27.3@sha256:0c050feb47802ae436b9030833694a0b80160d08e3b3049ad30bf7c9e724e09d AS builder
+FROM golang:1.27.3@sha256:e519d3b0a5b285e5aa53ab9eef02bc6bbb9cb04608389b743a136a9ce75f0d1e AS builder
 ARG TARGETOS
 ARG TARGETARCH
 # VERSION-01: build-stamped version (internal/version), passed via --build-arg at release time.
