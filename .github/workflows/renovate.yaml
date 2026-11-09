@@ -44,5 +44,5 @@ jobs:
       - uses: renovatebot/github-action@266fef21329c44765ad42f9dea1f01f5d2d91084 # v46.3.13
         with:
           configurationFile: .github/renovate-config.json
-          renovate-image: ghcr.io/renovatebot/renovate:44.206.2@sha256:d515a99f5d14d1c62b792ee61339d165dd9d20ee82ca9d5379daf639050bab51
+          renovate-image: ghcr.io/renovatebot/renovate:44.224.1@sha256:0405454d925558d5a2368ddb1d8318244e96c73974697a5264a4d1977a277598
           token: ${{ secrets.RENOVATE_TOKEN }}
