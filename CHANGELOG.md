@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **deps:** Bump brotli and klauspost/compress for advisories ([#548](https://github.com/platformrelay/kollect/pull/548))[9410024](https://github.com/platformrelay/kollect/commit/9410024c84fd39e4d56accfa30b4d2a35d020a79)
+
 - **sink:** Keep inventory-scoped failures out of the breaker [36ed675](https://github.com/platformrelay/kollect/commit/36ed675315b79f7d83e0ee3d5599aa7c50aff1bd)
 
 - **ci:** Keep the Renovate label from cancelling the extended e2e run [ae5ea8d](https://github.com/platformrelay/kollect/commit/ae5ea8d6eb34bb076b0793a388abfb948e54b9ff)
