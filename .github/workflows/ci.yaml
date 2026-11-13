@@ -232,7 +232,10 @@ jobs:
           # PATENTS ref as x/net above. certifi (MPL-2.0) is the CA bundle the docs-site build's
           # requests stack uses; docs only, never shipped. SonarSource/sonarqube-scan-action
           # (reported LGPL-3.0) is a CI-only action like setup-task. All scoped to the package.
-          allow-dependencies-licenses: pkg:golang/golang.org/x/net, pkg:golang/golang.org/x/sys, pkg:golang/golang.org/x/tools, pkg:pypi/cairosvg, pkg:pypi/certifi, pkg:githubactions/go-task/setup-task, pkg:githubactions/SonarSource/sonarqube-scan-action
+          # Added 2026-11-13: cffi 2.1.1 relicensed to MIT-0 (MIT without the attribution clause,
+          # so more permissive than the allowed MIT). It is a cairosvg dependency in the docs-site
+          # build; docs only, never shipped. Scoped to the package.
+          allow-dependencies-licenses: pkg:golang/golang.org/x/net, pkg:golang/golang.org/x/sys, pkg:golang/golang.org/x/tools, pkg:pypi/cairosvg, pkg:pypi/certifi, pkg:pypi/cffi, pkg:githubactions/go-task/setup-task, pkg:githubactions/SonarSource/sonarqube-scan-action
 
   verify:
     name: verify
