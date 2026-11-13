@@ -345,7 +345,7 @@ jobs:
         run: bash hack/test/ci_install_helm_hardening_test.sh
       - name: Install Helm
         env:
-          HELM_VERSION: v4.3.1
+          HELM_VERSION: v4.3.2
         run: bash hack/install-helm.sh
       - name: Ensure yq is available
         run: |
@@ -838,7 +838,7 @@ jobs:
           version: 3.54.0
       - name: Install Helm
         env:
-          HELM_VERSION: v4.3.1
+          HELM_VERSION: v4.3.2
         run: bash hack/install-helm.sh
       - name: Install helm-unittest plugin
         run: task tools:helm-unittest
