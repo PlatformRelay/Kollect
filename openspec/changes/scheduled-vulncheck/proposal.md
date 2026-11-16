@@ -11,14 +11,17 @@ advisory. Nothing reports it before that.
 
 This has happened twice:
 
-- **2026-10-25:** GO-2026-6809, a stdlib advisory. The Go 1.27.3 bump came from an external contributor's
-  PR.
-- **2026-11-12/13:** three advisories at once. They turned `vulncheck` red on 9 of 10 open Renovate PRs:
-  - GO-2026-6859 (net/http, fixed in go1.27.4);
-  - GO-2026-6888 (`github.com/andybalholm/brotli`, indirect, fixed in v1.2.7);
-  - GO-2026-6865 (`github.com/klauspost/compress`, indirect, fixed in v1.20.2).
+- **2026-10-25:** GO-2026-6809, a stdlib advisory, fixed by a hand-made Go 1.27.3 bump (#492). Neither
+  Renovate nor `Go patch lag` had proposed it first.
+- **2026-11-06 to 2026-11-13:** three advisories:
+  - GO-2026-6888 (`github.com/andybalholm/brotli`, indirect, fixed in v1.2.7), published 2026-11-05;
+  - GO-2026-6865 (`github.com/klauspost/compress`, indirect, fixed in v1.20.2), published 2026-11-05;
+  - GO-2026-6859 (net/http, fixed in go1.27.4), published 2026-11-11.
 
-  No single Renovate PR could pass. They were fixed together in #548.
+  `main`'s CI went red on 2026-11-06 (run 42151173159) and stayed red for seven days. Nobody noticed until
+  a Renovate wave showed `vulncheck` red on 7 of 10 open PRs; the other 3 were docs-only and skip it. No
+  single Renovate PR could pass. They were fixed together in #548 on 2026-11-13. A daily scan would have
+  opened an issue on 2026-11-06.
 
 The other signals do not cover this:
 
