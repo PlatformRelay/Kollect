@@ -19,7 +19,7 @@ remediate them (per OSPS recommendation).
 | --- | --- |
 | **VM-05.01** | Threshold table below — severity bands, calendar-day SLAs, license classes |
 | **VM-05.02** | [Pre-release gates](#enforcement-model) — Trivy + SBOM review before `v*.*.*` tags |
-| **VM-05.03** | `govulncheck` on code-affecting pushes and PRs; violations block merge in practice via CI signal and maintainer policy (see [Enforcement model](#enforcement-model)) |
+| **VM-05.03** | `govulncheck` on code-affecting pushes and PRs, and daily on `main` ([`vulncheck-scheduled.yaml`](https://github.com/platformrelay/kollect/blob/main/.github/workflows/vulncheck-scheduled.yaml)); violations block merge in practice via CI signal and maintainer policy (see [Enforcement model](#enforcement-model)) |
 
 !!! note "Scope"
     Secret scanning (`gitleaks`) and Go SAST (golangci-lint, CodeQL) run in the same CI pipeline but
@@ -46,8 +46,11 @@ Severity follows the [Go vulnerability database](https://vuln.go.dev/) and GitHu
 
 | Finding | Merge | Tagged release |
 | --- | --- | --- |
-| **Reachable vulnerability** (`govulncheck` reports it in `./...`) | Must pass `vulncheck` CI job | Must pass on release commit |
+| **Reachable vulnerability** (`govulncheck` reports it in `./...`) | Must pass `vulncheck` CI job; no SLA clock. The daily scan's `ci-failure` issue shows the gate red on the day the advisory lands, before it blocks the next merge | Must pass on release commit |
 | **Fixable CRITICAL/HIGH** in release OCI images (Trivy, `ignore-unfixed: true`) | N/A (images built at release) | Release workflow fails |
+
+A `CI failure: Vulnerability scan` issue whose only FAIL line is the "no advisory in its output" line
+is a tool, network or build failure of the scan, not a finding: fix the scan, nothing to remediate.
 
 Findings that do **not** appear in govulncheck (e.g. MEDIUM in a base image with no module import)
 follow the severity-band SLA and are reviewed before tagging.
@@ -72,7 +75,7 @@ These tools **find** SCA findings; remediation deadlines are in the table above.
 
 | Tool | Finds | When | Workflow |
 | --- | --- | --- | --- |
-| [**govulncheck**](https://go.dev/security/vuln/) | Known Go CVEs in **imported** packages | Code-affecting push / PR | [`ci.yaml` job **vulncheck**](https://github.com/platformrelay/kollect/blob/main/.github/workflows/ci.yaml) · `task vulncheck` |
+| [**govulncheck**](https://go.dev/security/vuln/) | Known Go CVEs in **imported** packages | Code-affecting push / PR, and daily on `main` | [`ci.yaml` job **vulncheck**](https://github.com/platformrelay/kollect/blob/main/.github/workflows/ci.yaml) · [`vulncheck-scheduled.yaml`](https://github.com/platformrelay/kollect/blob/main/.github/workflows/vulncheck-scheduled.yaml) · `task vulncheck` |
 | **GitHub advisory alerts + Renovate** | Advisory detection plus scheduled dependency-update PRs | Continuous + scheduled | [Renovate workflow](https://github.com/platformrelay/kollect/blob/main/.github/workflows/renovate.yaml) |
 | **OSV Scanner** | Dependency inventory advisories; checked-in reviewed exceptions | Maintainer audit | [`osv-scanner.toml`](https://github.com/platformrelay/kollect/blob/main/osv-scanner.toml) |
 | [**Trivy**](https://github.com/aquasecurity/trivy) | Fixable CRITICAL/HIGH in release images | On `v*.*.*` tag | [`release.yaml`](https://github.com/platformrelay/kollect/blob/main/.github/workflows/release.yaml) |
@@ -106,7 +109,7 @@ Be explicit about what automation **blocks** vs what maintainers **track** under
 
 | Control | Mechanism | Blocks GitHub merge? | Blocks release? |
 | --- | --- | --- | --- |
-| **Reachable Go CVEs** | `govulncheck` CI job | **Yes** — `vulncheck` is a required check; contributors MUST fix before merge | Yes — release only from green CI on tag commit |
+| **Reachable Go CVEs** | `govulncheck` CI job, and the daily `Vulnerability scan` on `main` | **Yes** — `vulncheck` is a required check; contributors MUST fix before merge. No SLA clock: the daily scan opens a `ci-failure` issue on the day an advisory lands, before it blocks the next merge | Yes — release only from green CI on tag commit |
 | **Blocklisted modules** | `depguard` / `gomodguard` in `task lint` | **Yes** — `lint` is a required check | Same |
 | **Dependency advisories** | GitHub alerts, OSV, and update PRs | No — **SLA-tracked** (7 / 30 / 90 days by severity) | Reviewed before tag |
 | **Image CVEs** | Trivy on operator, pipeline, and UI images | N/A | **Yes** — fixable CRITICAL/HIGH fails release workflow |

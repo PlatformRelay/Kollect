@@ -427,6 +427,8 @@ if [[ "${MODE}" == self-test ]]; then
       rx "${W}" '/^ +- Test shuffle$/d'
     judge cfr wiring "MUT-1 list loses Mutation testing" "on.workflow_run.workflows must be exactly" \
       rx "${W}" '/^ +- Mutation testing$/d'
+    judge cfr wiring "SVS-2 list loses Vulnerability scan" "on.workflow_run.workflows must be exactly" \
+      rx "${W}" '/^ +- Vulnerability scan$/d'
     judge cfr wiring "G4 W2 types widened" "on.workflow_run.types must be exactly" \
       yqe "${W}" '."on".workflow_run.types += ["requested"]'
     judge cfr wiring "G4 W3 repository guard dropped from the workflow if:" "job if: must be exactly" \
@@ -1551,14 +1553,15 @@ wq() {
 }
 
 # Reported workflows: exactly E2E nightly, Go patch lag, Test shuffle (TDS-2, openspec change
-# test-depth-signals) and Mutation testing (MUT-1, openspec change mutation-testing-signal), each
-# the name: of exactly one workflow file (workflow_run matches by name, so a rename silently stops
+# test-depth-signals), Mutation testing (MUT-1, openspec change mutation-testing-signal) and
+# Vulnerability scan (SVS-2, openspec change scheduled-vulncheck), each the name: of exactly one
+# workflow file (workflow_run matches by name, so a rename silently stops
 # the trigger).
 listed="$(wq '."on".workflow_run.workflows')"
-if [[ "${listed}" == '["E2E nightly","Go patch lag","Test shuffle","Mutation testing"]' ]]; then
-  ok "wiring: workflow_run lists exactly E2E nightly, Go patch lag, Test shuffle and Mutation testing"
+if [[ "${listed}" == '["E2E nightly","Go patch lag","Test shuffle","Mutation testing","Vulnerability scan"]' ]]; then
+  ok "wiring: workflow_run lists exactly E2E nightly, Go patch lag, Test shuffle, Mutation testing and Vulnerability scan"
 else
-  bad "wiring: ${WF_REL} on.workflow_run.workflows must be exactly [\"E2E nightly\",\"Go patch lag\",\"Test shuffle\",\"Mutation testing\"], found ${listed}"
+  bad "wiring: ${WF_REL} on.workflow_run.workflows must be exactly [\"E2E nightly\",\"Go patch lag\",\"Test shuffle\",\"Mutation testing\",\"Vulnerability scan\"], found ${listed}"
 fi
 listed_names=()
 if [[ -f "${WF}" ]]; then

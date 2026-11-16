@@ -32,6 +32,7 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 ## Tasks
 
 - T0.1 · BLOCKED (SPECIFICATION) → CLOSED after the orchestrator corrected proposal *Why* to the verified facts (run 42151173159, #492; no design or task change) · proposal *Why*: `main` red 2026-11-06..13 (not 11-12/13), 7 of 10 Renovate PRs red (not 9), #492 was the maintainer's · every other claim holds · `evidence/T0.1.md` · review `reviews/L-tasks/T0.1/` reviewer A REQUEST_CHANGES (evidence: real `task vulncheck` probe missing), fixed, no round 2
+- G1 · CLOSED-WITH-GAPS (SVS-2 in production is 2.1's; docs:verify's mkdocs build not run locally) · workflow, script, guard (64 → 68 self-test cases), reporter entry, lint steps, CWS-6/CFR updates, docs · `evidence/G1.md` · review `reviews/L-tasks/G1/` reviewer A APPROVE (P2 evidence), reviewer B (paid leg, CI diff trigger) CLEAN with notes; title-rule edge cases added (V-3e), no round 2
 
 ## Known red
 
@@ -42,6 +43,9 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 - T0.1: read job logs with `gh run view <run> --log --job <job>`; `gh api .../jobs/<id>/logs` refuses output with escape sequences.
 - T0.1: the `task` first on `PATH` here is 3.53.1; prove Task 3.54.0 with `~/.local/share/mise/installs/task/3.54.0/task`.
 - T0.1: CI run 43406013666 holds all three advisories (stdlib included) in one real `task vulncheck` output; govulncheck wraps titles at 80 columns.
+- G1: `consistency_toolchain_pins_test.sh` models Renovate over tracked files: `git add` a new workflow first, or its setup-task pin reads as unextracted.
+- G1: local `docs:verify` stops at `mkdocs build` (`redirects` plugin missing, main checkout's venv too); record the steps before it and leave the build to CI.
+- G1: generate whitespace-sensitive fixtures inside the test at run time; a committed one is at the mercy of whitespace hooks.
 
 ## Triage
 

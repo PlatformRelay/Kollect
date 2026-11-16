@@ -587,6 +587,14 @@ jobs:
         run: bash hack/test/go_patch_lag_test.sh
       - name: Verify the go-patch-lag test can still fail (CFC-6)
         run: bash hack/test/go_patch_lag_test.sh --self-test
+      # SVS-1 to SVS-3 (openspec change scheduled-vulncheck): the daily Vulnerability scan's
+      # workflow shape and the script's FAIL lines and exit status, against a fake task (this job
+      # never runs govulncheck). Plain and --self-test as separate steps; CWS-6/CFC-6 checks each
+      # mode runs in a required job. Needs jq and yq.
+      - name: Verify the daily vulnerability scan workflow and its FAIL lines (SVS-1 to SVS-3)
+        run: bash hack/test/vulncheck_schedule_test.sh
+      - name: Verify the vulnerability scan test can still fail (SVS-3)
+        run: bash hack/test/vulncheck_schedule_test.sh --self-test
       # DUA-1, DUA-2, DUA-3, DUA-5, DUA-7 and DUA-8 (openspec change dependency-update-automation):
       # the self-hosted Renovate policy -- its token, fail-closed check, permissions, schedule,
       # concurrency, pinned image, environment, the config validator step in this job and no

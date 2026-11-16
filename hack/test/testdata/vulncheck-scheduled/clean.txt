@@ -1,0 +1,5 @@
+task: [install] go mod download
+task: [install] go mod verify
+all modules verified
+task: [vulncheck] go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+No vulnerabilities found.

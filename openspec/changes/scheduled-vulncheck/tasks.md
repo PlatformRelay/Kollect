@@ -58,7 +58,7 @@ Test rules:
 
 ## 1. Daily vulnerability scan, reported (SVS-1, SVS-1.1, SVS-1.2, SVS-2, SVS-3)
 
-- [ ] 1.1 Tests first. Add the script as a stub that exits 0 without running anything. The cases marked
+- [x] 1.1 Tests first. Add the script as a stub that exits 0 without running anything. The cases marked
   *base red* fail on that base; the rest are proven by the self-test after 1.2:
   - V-1 (*base red*): given the tree, when `vulncheck_schedule_test.sh` runs, then it fails with
     "`.github/workflows/vulncheck-scheduled.yaml` is missing" · exposes a guard that passes when the
@@ -107,8 +107,8 @@ Test rules:
   - V-6 (*base red* once the guard is listed, CWS-6): add `vulncheck_schedule_test.sh` to `cfc_guards` in
     `hack/test/ci_workflow_security_test.sh` and to its header comment. Add a self-test mutant, modelled
     on the existing "guard unwired" ones, that removes either `lint` step and expects CWS-6 to fail ·
-    exposes a guard nobody runs.
-- [ ] 1.2 Implement:
+    exposes a guard nobody runs. — closed 2026-11-16, evidence: evidence/G1.md
+- [x] 1.2 Implement:
   - the script: `set -uo pipefail`; capture `task vulncheck`'s combined output to a temp file while
     printing it; keep `task`'s status (`PIPESTATUS`, not the tee's); print the SVS-1.2 lines; exit with that
     status;
@@ -120,8 +120,8 @@ Test rules:
   - the reporter list entry;
   - the two `lint`-job steps.
 
-  Every check in the test rules passes.
-- [ ] 1.3 Docs:
+  Every check in the test rules passes. — closed 2026-11-16, evidence: evidence/G1.md
+- [x] 1.3 Docs:
   - `docs/security/sca-remediation-policy.md`:
     - VM-05.03 and the govulncheck tooling row: "Code-affecting push / PR, and daily on `main`", linking
       the new workflow;
@@ -132,7 +132,7 @@ Test rules:
   - `docs/development/testing.md`: a row in *Scheduled and manual tiers* for `vulncheck-scheduled.yaml`.
 
   `task lint:markdown` and `task docs:verify` pass. Compare `docs:verify` with a clean main: the
-  untracked `ui/` gotcha.
+  untracked `ui/` gotcha. — closed 2026-11-16, evidence: evidence/G1.md
 
 ## 2. After merge (integrator)
 
