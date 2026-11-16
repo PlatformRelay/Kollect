@@ -60,15 +60,15 @@ a commit.
   - `docs/security/sca-remediation-policy.md` (VM-05.03 and the tooling table) and
     `docs/development/testing.md` (scheduled tiers) say govulncheck also runs daily on `main`;
   - the zero-tolerance and enforcement rows say the scheduled issue makes a reachable vulnerability
-    visible before it blocks a merge. Such findings have no SLA clock. A "no advisory" issue is a tool
-    failure.
+    visible on the next scheduled scan, within a day, without waiting for a code change. Such findings
+    have no SLA clock. A "no advisory" issue is a tool failure.
 
 ## Out of scope
 
 - Update automation: Renovate `vulnerabilityAlerts`, `osvVulnerabilityAlerts`, or enabling indirect
-  gomod updates. This change is about detection: an advisory must be visible on the day it lands, whatever
-  supplies the fix. Enabling indirect updates is a separate Renovate policy question (more PRs, each needing
-  review) and can be raised on its own.
+  gomod updates. This change is about detection: an advisory must be visible on the next scheduled scan,
+  within a day, whatever supplies the fix. Enabling indirect updates is a separate Renovate policy question
+  (more PRs, each needing review) and can be raised on its own.
 - Auto-fixing: the scan reports and never opens a PR.
 - Scanning the shipped image or binary (`govulncheck -mode binary`, Trivy on a schedule).
 

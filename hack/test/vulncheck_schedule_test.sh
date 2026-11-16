@@ -8,7 +8,8 @@
 # exits with task's status. ci-failure-report.yaml lists the workflow by name, so a failed
 # scheduled run opens or updates a ci-failure issue whose excerpt (the lines holding FAIL) names
 # the advisories. This test never runs govulncheck: the script cases put a fake `task` first on
-# PATH that prints a fixture and exits with a given status.
+# PATH that prints a fixture and exits with a given status. SVS-1 to SVS-1.2 are the workflow's
+# shape, SVS-1.3 the script's rules, SVS-2 the excerpt.
 #
 # Fixtures (hack/test/testdata/vulncheck-scheduled/), each real `task vulncheck` output:
 #   advisories.txt   CI run 43406013666 (2026-11-13, go1.27.3), job vulncheck, task exit 201: two
@@ -25,13 +26,20 @@
 #        positive integer), steps and name, the four steps (checkout at a SHA with only
 #        persist-credentials: false, go-cache with no inputs, setup-task at a SHA with only
 #        version:, the scan step running exactly the script), no continue-on-error, if, shell,
-#        defaults, concurrency or env anywhere, no secret or token expression, and every action
-#        SHA and the setup-task version already used by another workflow;
-#   V-3  the script's verdicts: (a) advisories -> the whole report, one trimmed FAIL line per
-#        advisory, task's exit status; (b) a failure with no advisory -> one "no advisory" FAIL
-#        line naming the status, which passes through (201 and 7); (c) clean -> no FAIL line,
-#        exit 0; (d) task is called with exactly `vulncheck`; (e) the title rule's edges (a
-#        whitespace-only line skipped, trailing blanks cut, an entry with no title line).
+#        defaults, concurrency or env anywhere, no secret or token expression (`secrets`,
+#        `github.token`, `github[`), no job or step name holding FAIL, and every action SHA and
+#        the setup-task version already used by another workflow;
+#   V-3  the script's verdicts: (a) advisories -> the whole report, one FAIL line per advisory
+#        with its title lines trimmed and joined, task's exit status; (b) a failure with no
+#        advisory -> one "no advisory" FAIL line naming the status, which passes through (201
+#        and 7); (c) clean -> no FAIL line, exit 0; (d) task is called with exactly `vulncheck`;
+#        (e) the title rule's edges (a whitespace-only line skipped, trailing blanks cut, a title
+#        ended by a blank line, a More info: line or the next entry, an entry with no title line);
+#        (f) SVS-2 end to end: the script's output after 60 ordinary lines, prefixed with the job
+#        and step names (read from the workflow) as `gh run view --log-failed` prints them, fed
+#        through the real hack/ci/ci-failure-issue-body.sh, puts every advisory's FAIL line in the
+#        excerpt; (g) a failing capture (`tee` exits 1) -> the capture-failure line, exit 1 when
+#        task passed, task's status when it failed.
 # Every failure is collected before the exit (FAIL: <case>: lines), so one defect never hides
 # another's message.
 #
@@ -105,6 +113,11 @@ cat "${FAKE_TASK_FIXTURE}"
 exit "${FAKE_TASK_EXIT}"
 FAKE
   chmod +x "${ST}/bin/task"
+  # A tee that passes the output through but cannot write the capture (a full disk, say).
+  mkdir -p "${ST}/teebin"
+  printf '%s\n' '#!/usr/bin/env bash' 'cat' 'exit 1' >"${ST}/teebin/tee"
+  chmod +x "${ST}/teebin/tee"
+  EXTRA_PATH=""
 
   # run_script <case> <fixture> <exit>: runs the script; RC, ${ST}/out (stdout and stderr),
   # ${ST}/fail (its FAIL lines). Checks V-3d (the argv) and that the output begins with the
@@ -113,7 +126,7 @@ FAKE
     local id="$1" fixture="${FX}/$2"
     [[ "$2" != /* ]] || fixture="$2"
     : >"${ST}/args"
-    (cd "${ST}" && env PATH="${ST}/bin:${PATH}" FAKE_TASK_ARGS="${ST}/args" FAKE_TASK_FIXTURE="${fixture}" \
+    (cd "${ST}" && env PATH="${EXTRA_PATH}${ST}/bin:${PATH}" FAKE_TASK_ARGS="${ST}/args" FAKE_TASK_FIXTURE="${fixture}" \
       FAKE_TASK_EXIT="$3" bash "${SCRIPT}") >"${ST}/out" 2>&1 && RC=0 || RC=$?
     { grep '^FAIL:' "${ST}/out" || true; } >"${ST}/fail"
     [[ "$(cat "${ST}/args")" == vulncheck ]] ||
@@ -129,7 +142,7 @@ FAKE
       case_fail "$1" "FAIL lines are [$(one_line "${ST}/fail")], want [$(one_line "${ST}/want")]"
   }
   want_rc() {
-    [[ "${RC}" == "$2" ]] || case_fail "$1" "the script exited ${RC}, want $2 (task's status)"
+    [[ "${RC}" == "$2" ]] || case_fail "$1" "the script exited ${RC}, want $2"
   }
 
   fixtures_ok=1
@@ -144,7 +157,7 @@ FAKE
   elif ((fixtures_ok)); then
     run_script V-3a advisories.txt 201
     want_rc V-3a 201
-    want_fail V-3a "FAIL: GO-2026-6888 Excessive memory allocation when decompressing crafted streams in
+    want_fail V-3a "FAIL: GO-2026-6888 Excessive memory allocation when decompressing crafted streams in github.com/andybalholm/brotli
 FAIL: GO-2026-6865 Panic on two-block frames in github.com/klauspost/compress
 FAIL: GO-2026-6859 HTTP/1 server crash due to MaxBytesReader header race in net/http"
 
@@ -159,23 +172,44 @@ FAIL: GO-2026-6859 HTTP/1 server crash due to MaxBytesReader header race in net/
     want_rc V-3c 0
     want_fail V-3c ""
 
-    # V-3e: the SVS-1.2 title rule's edges, which real output does not show: a whitespace-only line
-    # before the title (skipped), trailing blanks (cut), an entry followed directly by the next one
-    # and an entry at the end of the output (each a FAIL line with its id and no title). Built here,
-    # not committed, so no whitespace hook can strip it; the GO ids are implausible on purpose.
+    # V-3e: the SVS-1.3 title rule's edges, which real output does not show: a whitespace-only line
+    # before the title (skipped), trailing blanks (cut), a title ended by a More info: line, by a
+    # blank line (the line after it is not title) and by the next entry, an entry followed directly
+    # by the next one and an entry at the end of the output (each a FAIL line with its id and no
+    # title). Built here, not committed, so no whitespace hook can strip it; the GO ids are
+    # implausible on purpose.
     printf '%s\n' '=== Symbol Results ===' '' 'Vulnerability #1: GO-2099-0001' $'   \t' \
-      $'    Title after a whitespace-only line   \t' '  More info: https://pkg.go.dev/vuln/GO-2099-0001' '' \
-      'Vulnerability #2: GO-2099-0002' 'Vulnerability #3: GO-2099-0003' >"${ST}/edge.txt"
+      $'    Title after a whitespace-only line   \t' $'    wrapped onto a second line\t  ' \
+      '  More info: https://pkg.go.dev/vuln/GO-2099-0001' '' \
+      'Vulnerability #2: GO-2099-0002' 'Vulnerability #3: GO-2099-0003' '    Title three, ended by a blank line' '' \
+      '    Not part of the title' 'Vulnerability #4: GO-2099-0004' '    Title four, ended by the next entry' \
+      'Vulnerability #5: GO-2099-0005' >"${ST}/edge.txt"
     run_script V-3e "${ST}/edge.txt" 201
     want_rc V-3e 201
-    want_fail V-3e "FAIL: GO-2099-0001 Title after a whitespace-only line
+    want_fail V-3e "FAIL: GO-2099-0001 Title after a whitespace-only line wrapped onto a second line
 FAIL: GO-2099-0002
-FAIL: GO-2099-0003"
+FAIL: GO-2099-0003 Title three, ended by a blank line
+FAIL: GO-2099-0004 Title four, ended by the next entry
+FAIL: GO-2099-0005"
+
+    # V-3g: the capture fails (tee exits 1 but still prints). Task passed -> exit 1; task failed ->
+    # task's status. Either way the one capture-failure line, and no verdict read from a capture
+    # that may be incomplete.
+    capture_line="FAIL: vulncheck-scheduled: could not capture the scan output"
+    EXTRA_PATH="${ST}/teebin:"
+    run_script V-3g clean.txt 0
+    want_rc V-3g 1
+    want_fail V-3g "${capture_line}"
+    run_script V-3g advisories.txt 201
+    want_rc V-3g 201
+    want_fail V-3g "${capture_line}"
+    EXTRA_PATH=""
   fi
 
   # ===========================================================================================
   # V-1, V-2: the workflow's shape (read once through yq, anchors expanded, then queried as JSON)
   # ===========================================================================================
+  wf_ok=0
   if [[ ! -f "${WF}" ]]; then
     case_fail V-1 "absence: ${WF_REL} is missing"
   elif ! yq eval -o=json -I=0 'explode(.)' "${WF}" >"${ST}/wf.json" 2>"${ST}/yq.err"; then
@@ -221,8 +255,13 @@ FAIL: GO-2099-0003"
     soft="$(wj '[.. | objects | keys[] | select(. == "continue-on-error" or . == "if" or . == "shell" or . == "defaults" or . == "concurrency" or . == "env")] | unique | join(",")')"
     [[ -z "${soft}" ]] || c "[${soft}] appears in the workflow: nothing may skip, soften, cancel or re-environment the scan"
     # shellcheck disable=SC2016 # the GitHub expression syntax is the text searched for
-    tok="$(wj '[.. | strings | select(test("\\$\\{\\{[^}]*(secrets|github\\.token)"))] | join(" ; ")')"
+    tok="$(wj '[.. | strings | select(test("\\$\\{\\{[^}]*(secrets|github\\.token|github\\[)"))] | join(" ; ")')"
     [[ -z "${tok}" ]] || c "a secret or token expression appears (${tok}); the scan reads public data and needs none"
+    # SVS-1.2: gh run view --log-failed starts every log line with the job and the step name, so a
+    # name holding FAIL makes every line of the step match the issue's FAIL excerpt.
+    failnames="$(wj '[(.jobs | to_entries[] | (.value.name // .key)), (.jobs[].steps[]? | .name // empty)] | map(tostring | select(contains("FAIL"))) | join(" ; ")')"
+    [[ -z "${failnames}" ]] ||
+      c "a job or step name holds FAIL (${failnames}): gh run view --log-failed prefixes every log line with it, so every line would match the issue's FAIL excerpt"
     # Each action at a SHA already used by another workflow, so dependency-review saw it, and
     # setup-task at a version another workflow uses.
     others=()
@@ -246,6 +285,41 @@ FAIL: GO-2099-0003"
       jq -e --arg v "${ver}" 'index($v) != null' <<<"${vs}" >/dev/null && seen=1
     done
     ((seen)) || c "setup-task version: ${ver} is used by no other workflow"
+    wf_ok=1
+  fi
+
+  # ===========================================================================================
+  # V-3f (SVS-2): the script's FAIL lines reach the issue excerpt, as the CI failure report builds
+  # it from `gh run view --log-failed` (hack/ci/ci-failure-report.sh: lines
+  # `<job>\t<step>\t<timestamp> <text>`). Job and step name come from the workflow, so renaming
+  # either is tested; 60 ordinary lines come first, more than the builder's 50-line cap.
+  # ===========================================================================================
+  BUILDER_REL=hack/ci/ci-failure-issue-body.sh
+  if [[ ! -f "${ROOT}/${BUILDER_REL}" ]]; then
+    case_fail V-3f "absence: ${BUILDER_REL} is missing"
+  elif ((wf_ok && fixtures_ok)) && [[ -f "${SCRIPT}" ]]; then
+    for i in $(seq 1 60); do
+      printf 'go: downloading example.com/dep%02d v1.0.%d\n' "${i}" "${i}"
+    done >"${ST}/long.txt"
+    cat "${FX}/advisories.txt" >>"${ST}/long.txt"
+    run_script V-3f "${ST}/long.txt" 201
+    gh_job="$(wj '.jobs | to_entries | .[0] | (.value.name // .key)')"
+    gh_step="$(wj '.jobs | to_entries | .[0].value.steps[3] | (.name // ("Run " + (.run // "" | sub("\\s+$"; ""))))')"
+    GH_JOB="${gh_job}" GH_STEP="${gh_step}" \
+      awk '{ printf "%s\t%s\t2026-11-13T04:42:%02d.1234567Z %s\n", ENVIRON["GH_JOB"], ENVIRON["GH_STEP"], NR % 60, $0 }' \
+      "${ST}/out" >"${ST}/failed.log"
+    jq -n --arg j "${gh_job}" --arg s "${gh_step}" \
+      '{jobs: [{name: $j, conclusion: "failure", steps: [{name: $s, conclusion: "failure"}]}]}' >"${ST}/jobs.json"
+    if ! bash "${ROOT}/${BUILDER_REL}" --workflow-name "$(wj '.name')" --workflow-path "${WF_REL}" \
+      --run-id 43406013666 --run-url https://github.com/PlatformRelay/kollect/actions/runs/43406013666 --key 1.1 \
+      --jobs "${ST}/jobs.json" --log "${ST}/failed.log" >"${ST}/body.md" 2>"${ST}/body.err"; then
+      case_fail V-3f "${BUILDER_REL} failed: $(head -c 200 "${ST}/body.err" | tr '\n' ' ')"
+    else
+      for gid in GO-2026-6888 GO-2026-6865 GO-2026-6859; do
+        grep -qF -- "FAIL: ${gid} " "${ST}/body.md" ||
+          case_fail V-3f "the issue excerpt lacks FAIL: ${gid} (the log as gh run view --log-failed prints it, through ${BUILDER_REL})"
+      done
+    fi
   fi
 
   if ((BAD > 0)); then
@@ -275,6 +349,7 @@ COPY="${TMP}/copy"
 mkdir -p "${BASE}/hack/ci" "${BASE}/hack/test/testdata"
 cp -R "${ROOT}/.github" "${BASE}/"
 cp -p "${SCRIPT}" "${BASE}/hack/ci/" 2>/dev/null || true
+cp -p "${ROOT}/hack/ci/ci-failure-issue-body.sh" "${BASE}/hack/ci/" 2>/dev/null || true
 cp -R "${FX}" "${BASE}/hack/test/testdata/" 2>/dev/null || true
 
 # lit <file> <old> <new>: replace the one literal occurrence of <old>; fails when it is absent or
@@ -372,6 +447,8 @@ bump() { # what a grouped bot PR would do: every pin this test reads, at every s
     sed -E -i "s/(version: )${SETUP_VER//./\\.}\$/\\199.0.0/" .github/workflows/*.y*ml
 }
 control "every pin bumped by a bot (implausible versions and SHAs)" bump
+control "the scan step unnamed (gh then names it after its run line)" \
+  yqe "${W}" 'del(.jobs[].steps[3].name)'
 control "the scan step written as a literal block" \
   lit "${W}" "        run: ${RUN_LINE}${nl}" "        run: |${nl}          ${RUN_LINE}${nl}"
 
@@ -467,6 +544,12 @@ control "the scan step written as a literal block" \
     yqe "${W}" '.jobs[].steps[2].with.version = "${{ secrets.TASK_VERSION }}"'
   judge "a github.token expression (V-2)" "V-2: a secret or token expression appears" \
     yqe "${W}" '.jobs[].steps[0].with.token = "${{ github.token }}"'
+  judge "a github[...] token expression (V-2)" "V-2: a secret or token expression appears" \
+    yqe "${W}" ".jobs[].steps[0].with.token = \"\${{ github['token'] }}\""
+  judge "the scan step named with FAIL (V-2)" "V-2: a job or step name holds FAIL (govulncheck, one FAIL line per advisory)" \
+    yqe "${W}" '.jobs[].steps[3].name = "govulncheck, one FAIL line per advisory"'
+  judge "the job named with FAIL (V-2)" "V-2: a job or step name holds FAIL (vulncheck FAIL)" \
+    yqe "${W}" '.jobs[].name = "vulncheck FAIL"'
 
   # --- V-3: the script's verdicts ---------------------------------------------------------------
   judge "status not propagated: always exit 0 (V-3)" "V-3a: the script exited 0, want 201" \
@@ -474,27 +557,51 @@ control "the scan step written as a literal block" \
   judge "status not propagated: always exit 1 (V-3)" "V-3a: the script exited 1, want 201" \
     lit "${S}" 'exit "${status}"' 'exit 1'
   judge "the tee's status kept instead of task's (V-3)" "V-3a: the script exited 0, want 201" \
-    lit "${S}" 'status="${PIPESTATUS[0]}"' 'status="${PIPESTATUS[1]}"'
+    lit "${S}" 'status="${codes[0]}"' 'status="${codes[1]}"'
   judge "the status hard-coded as 201 (V-3)" "V-3b: the script exited 201, want 7" \
     lit "${S}" 'exit "${status}"' 'exit "$((status == 0 ? 0 : 201))"'
   judge "the FAIL lines dropped (V-3)" "V-3a: FAIL lines are [], want" \
     lit "${S}" '  found=$((found + 1))' '  found=$((found + 1)); return 0'
   judge "the title not trimmed (V-3)" "V-3a: FAIL lines are [FAIL: GO-2026-6888     Excessive" \
-    lit "${S}" '      title="${title#"${title%%[![:space:]]*}"}"' '      :'
+    lit "${S}" '    line="${line#"${line%%[![:space:]]*}"}"' '    :'
   judge "the output swallowed (V-3)" "V-3a: the output does not begin with the whole task vulncheck report" \
     lit "${S}" 'task vulncheck 2>&1 | tee "${out}"' 'task vulncheck >"${out}" 2>&1'
   judge "a FAIL line on a clean scan (V-3)" "V-3c: FAIL lines are [FAIL: task vulncheck exited 0" \
     lit "${S}" 'if [[ "${status}" -ne 0 ]]; then' 'if true; then'
-  judge "a whitespace-only line taken as the title (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001|FAIL: GO-2099-0002|" \
-    lit "${S}" '"${id}" && "${line}" =~ [^[:space:]] ]]' '"${id}" && -n "${line}" ]]'
+  judge "a wrapped title cut at its first line (V-3a)" "V-3a: FAIL lines are [FAIL: GO-2026-6888 Excessive memory allocation when decompressing crafted streams in|" \
+    lit "${S}" '      title="${title:+${title} }${line}"' '      title="${title:-${line}}"'
+  judge "title lines joined without a space (V-3a)" "V-3a: FAIL lines are [FAIL: GO-2026-6888 Excessive memory allocation when decompressing crafted streams ingithub.com" \
+    lit "${S}" '      title="${title:+${title} }${line}"' '      title="${title}${line}"'
+  judge "More info: not ending the title (V-3a)" "V-3a: FAIL lines are [FAIL: GO-2026-6888 Excessive memory allocation when decompressing crafted streams in github.com/andybalholm/brotli More info:" \
+    lit "${S}" '    elif [[ "${line}" == "More info:"* ]]; then' '    elif false; then'
+  judge "a whitespace-only line taken as the end of the title (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001|FAIL: GO-2099-0002|" \
+    lit "${S}" '      [[ -z "${title}" ]] || flush' '      flush'
+  judge "a blank line not ending the title (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001 Title after a whitespace-only line wrapped onto a second line|FAIL: GO-2099-0002|FAIL: GO-2099-0003 Title three, ended by a blank line Not part of the title|" \
+    lit "${S}" '      [[ -z "${title}" ]] || flush' '      :'
   judge "trailing blanks kept (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001 Title after a whitespace-only line " \
-    lit "${S}" '      title="${title%"${title##*[![:space:]]}"}"' '      :'
-  judge "an entry followed by the next one dropped (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001 Title after a whitespace-only line|FAIL: GO-2099-0003]" \
-    lit "${S}" '      [[ -z "${id}" ]] || report "${id}" ""' '      :'
-  judge "an entry at the end of the output dropped (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001 Title after a whitespace-only line|FAIL: GO-2099-0002]" \
-    lit "${S}" "${nl}"'  [[ -z "${id}" ]] || report "${id}" ""' "${nl}"'  :'
+    lit "${S}" '    line="${line%"${line##*[![:space:]]}"}"' '    :'
+  judge "an entry not flushed at the next one (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001 Title after a whitespace-only line wrapped onto a second line|FAIL: GO-2099-0003 Title three" \
+    lit "${S}" '      flush'"${nl}"'      id="${BASH_REMATCH[1]}"' '      :'"${nl}"'      id="${BASH_REMATCH[1]}"'
+  judge "an entry at the end of the output dropped (V-3e)" "V-3e: FAIL lines are [FAIL: GO-2099-0001 Title after a whitespace-only line wrapped onto a second line|FAIL: GO-2099-0002|FAIL: GO-2099-0003 Title three, ended by a blank line|FAIL: GO-2099-0004 Title four, ended by the next entry]" \
+    lit "${S}" '  done <"${out}"'"${nl}"'  flush'"${nl}" '  done <"${out}"'"${nl}"'  :'"${nl}"
   judge "task called with --exit-code (V-3)" "V-3d: V-3a: task was called with [--exit-code|vulncheck]" \
     lit "${S}" 'task vulncheck 2>&1 | tee "${out}"' 'task --exit-code vulncheck 2>&1 | tee "${out}"'
+
+  # --- V-3g: capture failure (SVS-1.3) ----------------------------------------------------------
+  judge "the tee's status ignored (V-3g)" "V-3g: FAIL lines are [], want [FAIL: vulncheck-scheduled: could not capture the scan output]" \
+    lit "${S}" 'captured="${codes[1]}"' 'captured=0'
+  judge "a capture failure passing when task passed (V-3g)" "V-3g: the script exited 0, want 1" \
+    lit "${S}" 'exit "$((status != 0 ? status : 1))"' 'exit "${status}"'
+  judge "a capture failure hiding task's status (V-3g)" "V-3g: the script exited 1, want 201" \
+    lit "${S}" 'exit "$((status != 0 ? status : 1))"' 'exit 1'
+  judge "the capture-failure line dropped (V-3g)" "V-3g: FAIL lines are [], want [FAIL: vulncheck-scheduled: could not capture" \
+    lit "${S}" '  echo "FAIL: vulncheck-scheduled: could not capture the scan output"' '  :'
+
+  # --- V-3f: the FAIL lines reach the issue excerpt (SVS-2) ---------------------------------------
+  judge "the scan step named with FAIL again: excerpt flooded (V-3f)" "V-3f: the issue excerpt lacks FAIL: GO-2026-6888" \
+    yqe "${W}" '.jobs[].steps[3].name = "govulncheck, one FAIL line per advisory"'
+  judge "the body builder deleted (V-3f)" "V-3f: absence: hack/ci/ci-failure-issue-body.sh is missing" \
+    rm -f hack/ci/ci-failure-issue-body.sh
 }
 
 if ((SBAD > 0)); then

@@ -34,9 +34,18 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 - T0.1 · BLOCKED (SPECIFICATION) → CLOSED after the orchestrator corrected proposal *Why* to the verified facts (run 42151173159, #492; no design or task change) · proposal *Why*: `main` red 2026-11-06..13 (not 11-12/13), 7 of 10 Renovate PRs red (not 9), #492 was the maintainer's · every other claim holds · `evidence/T0.1.md` · review `reviews/L-tasks/T0.1/` reviewer A REQUEST_CHANGES (evidence: real `task vulncheck` probe missing), fixed, no round 2
 - G1 · CLOSED-WITH-GAPS (SVS-2 in production is 2.1's; docs:verify's mkdocs build not run locally) · workflow, script, guard (64 → 68 self-test cases), reporter entry, lint steps, CWS-6/CFR updates, docs · `evidence/G1.md` · review `reviews/L-tasks/G1/` reviewer A APPROVE (P2 evidence), reviewer B (paid leg, CI diff trigger) CLEAN with notes; title-rule edge cases added (V-3e), no round 2
 
+- B1.1 · CLOSED · step renamed without FAIL; V-2 name check; V-3f end to end through the real body builder; tee status kept (V-3g); wrapped titles joined; `github[` token form; timing wording; SVS-1.3 ids (68 → 82 self-test lines) · `evidence/B1.1.md` · review `reviews/L-tasks/B1.1/` reviewer A APPROVE, reviewer B (paid leg, CI diff trigger) CONCERNS (evidence and wording only, fixed); no round 2 (orchestrator's branch round 2 follows)
+
 ## Known red
 
 ## Test changes
+
+| Task | Test | Change | Spec authority |
+|---|---|---|---|
+| B1.1 | `vulncheck_schedule_test.sh` V-3a | GO-2026-6888 expectation ends `in github.com/andybalholm/brotli` | SVS-1.3 title lines joined |
+| B1.1 | `vulncheck_schedule_test.sh` V-3e | fixture gains a wrapped title, blank-line and next-entry stops; mutants re-anchored | SVS-1.3 title lines joined |
+| B1.1 | `vulncheck_schedule_test.sh` V-2 | FAIL-name check; token regex adds `github[` | SVS-1.2 name rule; SVS-1.1 no token expression |
+| B1.1 | `vulncheck_schedule_test.sh` V-3f, V-3g | new: excerpt end to end through `ci-failure-issue-body.sh`; capture failure | SVS-2 excerpt; SVS-1.3 capture scenario |
 
 ## Lessons
 
@@ -46,6 +55,8 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 - G1: `consistency_toolchain_pins_test.sh` models Renovate over tracked files: `git add` a new workflow first, or its setup-task pin reads as unextracted.
 - G1: local `docs:verify` stops at `mkdocs build` (`redirects` plugin missing, main checkout's venv too); record the steps before it and leave the build to CI.
 - G1: generate whitespace-sensitive fixtures inside the test at run time; a committed one is at the mercy of whitespace hooks.
+- B1.1: a filter over `gh run view --log-failed` output sees `<job>\t<step>\t` on every line; test it with that prefix, names read from the workflow.
+- B1.1: fake a failing `tee` as `cat; exit 1` (passes stdout, fails the file); a fake that ignores stdin SIGPIPEs the producer and changes its status.
 
 ## Triage
 

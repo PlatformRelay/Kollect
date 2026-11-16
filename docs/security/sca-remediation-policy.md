@@ -46,7 +46,7 @@ Severity follows the [Go vulnerability database](https://vuln.go.dev/) and GitHu
 
 | Finding | Merge | Tagged release |
 | --- | --- | --- |
-| **Reachable vulnerability** (`govulncheck` reports it in `./...`) | Must pass `vulncheck` CI job; no SLA clock. The daily scan's `ci-failure` issue shows the gate red on the day the advisory lands, before it blocks the next merge | Must pass on release commit |
+| **Reachable vulnerability** (`govulncheck` reports it in `./...`) | Must pass `vulncheck` CI job; no SLA clock. The daily scan's `ci-failure` issue shows the gate red on the next scheduled scan, within a day, without waiting for a code change | Must pass on release commit |
 | **Fixable CRITICAL/HIGH** in release OCI images (Trivy, `ignore-unfixed: true`) | N/A (images built at release) | Release workflow fails |
 
 A `CI failure: Vulnerability scan` issue whose only FAIL line is the "no advisory in its output" line
@@ -109,7 +109,7 @@ Be explicit about what automation **blocks** vs what maintainers **track** under
 
 | Control | Mechanism | Blocks GitHub merge? | Blocks release? |
 | --- | --- | --- | --- |
-| **Reachable Go CVEs** | `govulncheck` CI job, and the daily `Vulnerability scan` on `main` | **Yes** — `vulncheck` is a required check; contributors MUST fix before merge. No SLA clock: the daily scan opens a `ci-failure` issue on the day an advisory lands, before it blocks the next merge | Yes — release only from green CI on tag commit |
+| **Reachable Go CVEs** | `govulncheck` CI job, and the daily `Vulnerability scan` on `main` | **Yes** — `vulncheck` is a required check; contributors MUST fix before merge. No SLA clock: the daily scan opens a `ci-failure` issue on the next scheduled scan, within a day, without waiting for a code change | Yes — release only from green CI on tag commit |
 | **Blocklisted modules** | `depguard` / `gomodguard` in `task lint` | **Yes** — `lint` is a required check | Same |
 | **Dependency advisories** | GitHub alerts, OSV, and update PRs | No — **SLA-tracked** (7 / 30 / 90 days by severity) | Reviewed before tag |
 | **Image CVEs** | Trivy on operator, pipeline, and UI images | N/A | **Yes** — fixable CRITICAL/HIGH fails release workflow |
