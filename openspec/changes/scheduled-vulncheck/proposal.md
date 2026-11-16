@@ -56,8 +56,9 @@ a commit.
 - Docs:
   - `docs/security/sca-remediation-policy.md` (VM-05.03 and the tooling table) and
     `docs/development/testing.md` (scheduled tiers) say govulncheck also runs daily on `main`;
-  - the SLA clock text says a vulnerability first named by a scheduled-scan issue starts its clock there.
-    A "no advisory" issue is a tool failure and starts no clock.
+  - the zero-tolerance and enforcement rows say the scheduled issue makes a reachable vulnerability
+    visible before it blocks a merge. Such findings have no SLA clock. A "no advisory" issue is a tool
+    failure.
 
 ## Out of scope
 

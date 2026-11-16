@@ -1,7 +1,7 @@
 # Loop — scheduled-vulncheck (spec-loop-duo run state)
 
 Repo: worktree `scheduled-vulncheck` · Branch: `ci/scheduled-vulncheck` · Base: `origin/main` @ `f31f94ef3` · Started: 2026-11-16 · Reviewers: two-model duo
-Next: R spec-set review
+Next: L — T0.1
 Task prompt: local, `agent-context/loops/scheduled-vulncheck/task-prompt.md` (harness, not committed)
 Budget: paid review legs 0/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-16) · estimate: R 1, G1 1 (CI diff → extra leg trigger), T0.1 0, B 2 → planned 4
 
@@ -13,7 +13,7 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 - [x] 0 orient — new change; open PRs touching these files: Renovate #552 (github actions) may bump the
   action shas the new workflow pins; whichever lands second follows the other
 - [x] P plan + tasks — written; spec set committed: (this commit)
-- [ ] R spec-set review — round 1 on `6e83424eb`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; all findings verified, 13 fix, 1 reject (`reviews/R-spec-set/round-1/verification.md`); the CRITICAL has a mechanical fix both legs named → round 2 (last)
+- [x] R spec-set review — round 1 on `6e83424eb`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; 13 fix, 1 partly rejected (`reviews/R-spec-set/round-1/verification.md`); CRITICAL had a mechanical fix both legs named → round 2 (last) on `067e0ace7`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; the CRITICAL (Task's exit status, not govulncheck's) is a mechanical fix both legs named, verified against the 2026-11-12 CI log (`Process completed with exit code 201`); all 9 findings fixed (`reviews/R-spec-set/round-2/verification.md`). No third round (limit); T0.1 probes the Task status and title format, and stage B reviews the final set
 - [ ] L task loop
 - [ ] B branch review
 - [ ] Hand-off
@@ -55,3 +55,11 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 | R1 | Concurrency unspecified; cancel-in-progress would fake a failure | NOTE | reviewer-b | fix | SVS-1 no `concurrency:`; V-2 top-level keys | no |
 | R1 | Transient DB outage opens an issue | NOTE | reviewer-b | fix | proposal *Impact* | no |
 | R1 | loop.md absolute home path / harness wording | NOTE | reviewer-a | fix (path) / reject (wording) | path made relative; "two-model duo" is the loop convention in every archived change | no |
+| R2 | Script status is Task's (201), not govulncheck's; fake exit 3 hides it | CRITICAL | reviewer-a, reviewer-b | fix | SVS-1.2 "task's status"; V-3 fixtures exit 201 + pass-through case; T0.1 probes | no |
+| R2 | Job-level `concurrency:`/`env:` and extra checkout inputs unchecked | WARNING | reviewer-a | fix | SVS-1.1 job-key allow-list, no `env:`; V-2 mutants | no |
+| R2 | Red-first claimed for cases that cannot be red on the base | WARNING | reviewer-a | fix | tasks: *base red* marks; mutants proven by self-test after 1.2 | no |
+| R2 | Cron rule admits hourly / every-minute | WARNING | reviewer-a, reviewer-b | fix | SVS-1 integer minute+hour; V-2 mutants | no |
+| R2 | SLA-clock sentence contradicts the policy's zero-tolerance "no SLA" rule | WARNING | reviewer-b | fix | tasks 1.3 targets the zero-tolerance and enforcement rows; proposal | no |
+| R2 | Title whitespace unspecified | NOTE | reviewer-b | fix | SVS-1.2 trimmed | no |
+| R2 | `timed_out` conclusion not named | NOTE | reviewer-b | fix | SVS-1 scenario | no |
+| R2 | Fixture lacks the stdlib advisory | NOTE | reviewer-b | fix | test rules: stdlib entry added to the fixture | no |

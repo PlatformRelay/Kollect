@@ -2,7 +2,9 @@
 
 Red first. G1's test task records its red in `evidence/G1.md`: each guard runs against the base tree and
 fails on the named check, not on a missing tool or a shell error. Base here means no workflow, the script
-a stub that exits 0 without running anything, and no list entry. G1 closes in one commit with tests and
+a stub that exits 0 without running anything, and no list entry. Only the cases 1.1 marks *base red* are
+expected red on that base. The shape mutants (V-2) and the script mutants (V-3) are proven after 1.2, by
+the self-test against a valid copy, each failing with its named message. G1 closes in one commit with tests and
 implementation, so no commit carries a red guard.
 
 Each case reads: given / when / then · the failure it exposes.
@@ -17,8 +19,10 @@ Test rules:
   - one unmutated control that must pass.
 - Script cases run `hack/ci/vulncheck-scheduled.sh` with a fake `task` first on `PATH`. The fake prints a
   fixture and exits with a given status. The fixtures live under
-  `hack/test/testdata/vulncheck-scheduled/`, and one is taken from the real 2026-11-12 govulncheck output
-  (two advisories, exit 3), trimmed. Record the command that produced it in the evidence.
+  `hack/test/testdata/vulncheck-scheduled/`. The advisory fixture combines the real 2026-11-12 CI output of
+  `task vulncheck` (two module advisories, task exit 201), trimmed, with the stdlib GO-2026-6859 entry
+  from a local run on go1.27.3, so the parser also meets `Standard library` text. Record the source run or
+  command of each part in the evidence.
 - Each group records:
   - `bash hack/test/vulncheck_schedule_test.sh` and `--self-test`;
   - `bash hack/test/ci_failure_report_test.sh` and `--self-test`;
@@ -42,8 +46,8 @@ Test rules:
   - the Renovate config: no `vulnerabilityAlerts`, `osvVulnerabilityAlerts` or indirect gomod rule.
 
   Also:
-  - govulncheck's exit codes (0 clean, 3 vulnerabilities found, other values for errors) and its report
-    format, from its docs or source at the pinned version;
+  - govulncheck's exit codes and report format at the pinned version (indentation of the title line), and
+    the exit code `task vulncheck` (Task 3.54.0) returns when govulncheck fails: probe it locally;
   - the wall time of a cold `vulncheck` job from a recent CI run, to set `timeout-minutes`;
   - the zizmor command `ci.yaml` and `hack/check.sh` run;
   - every place that has to know a new guard exists: CWS-6's `cfc_guards` list and header comment,
@@ -53,23 +57,25 @@ Test rules:
 
 ## 1. Daily vulnerability scan, reported (SVS-1, SVS-1.1, SVS-1.2, SVS-2, SVS-3)
 
-- [ ] 1.1 Tests first. Add the script as a stub that exits 0 without running anything. Every case below is
-  red on that base unless marked *control*:
-  - V-1: given the tree, when `vulncheck_schedule_test.sh` runs, then it fails with
+- [ ] 1.1 Tests first. Add the script as a stub that exits 0 without running anything. The cases marked
+  *base red* fail on that base; the rest are proven by the self-test after 1.2:
+  - V-1 (*base red*): given the tree, when `vulncheck_schedule_test.sh` runs, then it fails with
     "`.github/workflows/vulncheck-scheduled.yaml` is missing" · exposes a guard that passes when the
     workflow is absent.
   - V-2, the shape checks, one self-test mutant each, each mutant failing with a message that names its
     check:
     - `name:` other than `Vulnerability scan`;
     - a top-level key beyond `name`, `on`, `permissions` and `jobs` (`concurrency:`, `env:` or
-      `defaults:`);
+      `defaults:`), or a job key beyond `runs-on`, `timeout-minutes`, `steps` and `name` (job-level
+      `concurrency:`, `env:`, `if:`, `permissions:`);
     - a trigger removed or added, a second cron, `workflow_dispatch` inputs, or a cron made weekly
-      (`0 5 * * 1`) or monthly;
+      (`0 5 * * 1`), monthly, hourly (`17 * * * *`) or every five minutes (`*/5 * * * *`);
     - permissions other than exactly `contents: read`, or job-level `permissions:`;
     - a second job; `continue-on-error`, `if:`, `shell:` or `defaults:` anywhere in the workflow;
     - `timeout-minutes` missing, `0` or not an integer;
     - a step count other than 4;
-    - checkout not at a SHA or without `persist-credentials: false`;
+    - checkout not at a SHA, without `persist-credentials: false`, or given another input (`ref:`,
+      `repository:`);
     - go-cache given inputs, or replaced by another local action;
     - setup-task not at a SHA, given inputs other than `version:`, or at a version no other workflow uses;
     - an action SHA that no other workflow uses;
@@ -79,28 +85,32 @@ Test rules:
 
     Each exposes a guard that cannot fail on that property.
   - V-3, the script verdicts, with a fake `task`:
-    - (a) the real fixture, exit 3: output contains the full report, then exactly
-      `FAIL: GO-2026-6888 Excessive memory allocation when decompressing crafted streams in` and the
-      GO-2026-6865 line, and the script exits 3;
-    - (b) a fixture with no `Vulnerability #` entry, exit 1: exactly one
-      `FAIL: govulncheck exited 1; no advisory in its output (tool, network or build failure)`, exit 1;
-    - (c) a clean fixture, exit 0: no `FAIL:` line, exit 0;
-    - (d) a fake `task` that runs without a `vulncheck` argument fails the case.
+    - (a) (*base red*) the advisory fixture, fake exit 201: output contains the full report, then one
+      `FAIL:` line each for GO-2026-6859, GO-2026-6888 and GO-2026-6865 with the title trimmed (e.g.
+      `FAIL: GO-2026-6888 Excessive memory allocation when decompressing crafted streams in`), and the
+      script exits 201;
+    - (b) (*base red*) a fixture with no `Vulnerability #` entry, exit 201: exactly one
+      `FAIL: task vulncheck exited 201; no advisory in its output (tool, network or build failure)`, exit
+      201; and with exit 7, the same line naming 7 and exit 7 (status passed through, not hard-coded);
+    - (c) (*control* on the stub) a clean fixture, exit 0: no `FAIL:` line, exit 0;
+    - (d) (*base red*) the fake `task` records its arguments; the case fails unless they are exactly
+      `vulncheck`.
 
     Each self-test mutant of a copy of the script must fail its case: the status not propagated (always
     `exit 0`, or always `exit 1`), the FAIL lines dropped, or the output swallowed. Exposes a script that
     hides the advisory or turns a failure green.
   - V-4 (*control*): the self-test's unmutated copies pass · exposes a self-test that fails everything.
-  - V-5 (`ci_failure_report_test.sh`): the expected list includes `Vulnerability scan`, and a new self-test
+  - V-5 (*base red*, `ci_failure_report_test.sh`): the expected list includes `Vulnerability scan`, and a new self-test
     case deletes `- Vulnerability scan` from the list and expects "on.workflow_run.workflows must be
     exactly" · exposes the list check not covering the new entry.
-  - V-6 (CWS-6): add `vulncheck_schedule_test.sh` to `cfc_guards` in
+  - V-6 (*base red* once the guard is listed, CWS-6): add `vulncheck_schedule_test.sh` to `cfc_guards` in
     `hack/test/ci_workflow_security_test.sh` and to its header comment. Add a self-test mutant, modelled
     on the existing "guard unwired" ones, that removes either `lint` step and expects CWS-6 to fail ·
     exposes a guard nobody runs.
 - [ ] 1.2 Implement:
   - the script: `set -uo pipefail`; capture `task vulncheck`'s combined output to a temp file while
-    printing it; keep its status; print the SVS-1.2 lines; exit with the status;
+    printing it; keep `task`'s status (`PIPESTATUS`, not the tee's); print the SVS-1.2 lines; exit with that
+    status;
   - the workflow:
     - the four steps;
     - a daily cron at a minute and hour no other workflow uses;
@@ -114,9 +124,10 @@ Test rules:
   - `docs/security/sca-remediation-policy.md`:
     - VM-05.03 and the govulncheck tooling row: "Code-affecting push / PR, and daily on `main`", linking
       the new workflow;
-    - one sentence in the SLA clock paragraph: a vulnerability first named by the scheduled scan's
-      `ci-failure` issue starts its clock there, unless it was reported earlier. An issue whose only
-      FAIL line is the "no advisory" line is a tool failure and starts no clock;
+    - the *Zero-tolerance gates* row for reachable vulnerabilities and the *Reachable Go CVEs* row of
+      *Enforcement model*: these findings have no SLA clock. The scheduled scan's `ci-failure` issue makes
+      the gate visible on the day the advisory lands, before it blocks the next merge. An issue whose only
+      FAIL line is the "no advisory" line is a tool failure, not a finding;
   - `docs/development/testing.md`: a row in *Scheduled and manual tiers* for `vulncheck-scheduled.yaml`.
 
   `task lint:markdown` and `task docs:verify` pass. Compare `docs:verify` with a clean main: the
