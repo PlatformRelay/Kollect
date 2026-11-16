@@ -1,7 +1,7 @@
 # Loop — scheduled-vulncheck (spec-loop-duo run state)
 
 Repo: worktree `scheduled-vulncheck` · Branch: `ci/scheduled-vulncheck` · Base: `origin/main` @ `f31f94ef3` · Started: 2026-11-16 · Reviewers: two-model duo
-Next: L — T0.1
+Next: L — G1
 Task prompt: local, `agent-context/loops/scheduled-vulncheck/task-prompt.md` (harness, not committed)
 Budget: paid review legs 0/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-16) · estimate: R 1, G1 1 (CI diff → extra leg trigger), T0.1 0, B 2 → planned 4
 
@@ -31,7 +31,7 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 
 ## Tasks
 
-- T0.1 · BLOCKED (SPECIFICATION) · proposal *Why*: `main` red 2026-11-06..13 (not 11-12/13), 7 of 10 Renovate PRs red (not 9), #492 was the maintainer's · every other claim holds · `evidence/T0.1.md` · review `reviews/L-tasks/T0.1/` reviewer A REQUEST_CHANGES (evidence: real `task vulncheck` probe missing), fixed, no round 2
+- T0.1 · BLOCKED (SPECIFICATION) → CLOSED after the orchestrator corrected proposal *Why* to the verified facts (run 42151173159, #492; no design or task change) · proposal *Why*: `main` red 2026-11-06..13 (not 11-12/13), 7 of 10 Renovate PRs red (not 9), #492 was the maintainer's · every other claim holds · `evidence/T0.1.md` · review `reviews/L-tasks/T0.1/` reviewer A REQUEST_CHANGES (evidence: real `task vulncheck` probe missing), fixed, no round 2
 
 ## Known red
 

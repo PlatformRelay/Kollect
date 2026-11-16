@@ -34,7 +34,7 @@ Test rules:
 
 ## 0. Probe
 
-- [ ] 0.1 Verify on `origin/main` the claims `proposal.md` makes and record each with file:line or command
+- [x] 0.1 Verify on `origin/main` the claims `proposal.md` makes and record each with file:line or command
   output in `evidence/T0.1.md`:
   - the `vulncheck` job's trigger condition and that it is the only place govulncheck runs in CI;
   - the `task vulncheck` command and its pinned version;
@@ -53,7 +53,8 @@ Test rules:
   - every place that has to know a new guard exists: CWS-6's `cfc_guards` list and header comment,
     `ci_failure_report_test.sh`'s expected list, any docs list.
 
-  A claim that does not hold stops the loop with a decision request.
+  A claim that does not hold stops the loop with a decision request. — closed 2026-11-16, evidence:
+  evidence/T0.1.md (two narrative claims corrected in proposal.md by the orchestrator)
 
 ## 1. Daily vulnerability scan, reported (SVS-1, SVS-1.1, SVS-1.2, SVS-2, SVS-3)
 
