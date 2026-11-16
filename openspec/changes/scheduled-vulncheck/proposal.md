@@ -5,9 +5,9 @@
 `govulncheck` runs only in the `vulncheck` job of `.github/workflows/ci.yaml`, on pull requests and pushes
 that change code (`needs: [changes]`, `if: needs.changes.outputs.code == 'true'`). The vulnerability
 database changes without any commit to this repository, so a new advisory against a module or the
-standard library that kollect already calls turns `vulncheck` red on the **next** code PR, and on every
-open one at once. `vulncheck` is a required check, so the queue stops until someone fixes the advisory.
-Nothing reports it before that.
+standard library that kollect already calls turns `vulncheck` red on the next code-affecting run of every
+branch: each new PR, and each open PR as soon as it is rebased or re-run. `vulncheck` is a required check, so the queue stops until someone fixes the
+advisory. Nothing reports it before that.
 
 This has happened twice:
 
@@ -26,7 +26,9 @@ The other signals do not cover this:
   list holds nothing for brotli, compress or the stdlib (`gh api repos/PlatformRelay/Kollect/dependabot/alerts`,
   checked 2026-11-16).
 - **Renovate:** does not update `// indirect` gomod dependencies by default, and its
-  `osvVulnerabilityAlerts` covers direct dependencies only (docs.renovatebot.com, gomod manager and
+  `osvVulnerabilityAlerts` covers direct dependencies only. A rule enabling indirect updates would have
+  bumped brotli eventually, on Renovate's schedule, but it would not have said that an advisory was
+  waiting (docs.renovatebot.com, gomod manager and
   configuration options; read 2026-11-16).
 - **`Go patch lag`:** weekly (`23 6 * * 1`), and it covers only the toolchain. Its last green run on
   2026-11-09 came before go1.27.4.
@@ -37,7 +39,11 @@ a commit.
 ## What Changes
 
 - A new workflow, `.github/workflows/vulncheck-scheduled.yaml`, named `Vulnerability scan`:
-  - runs `task vulncheck` on the default branch once a day and on `workflow_dispatch`;
+  - runs `task vulncheck` on the default branch once a day and on `workflow_dispatch`, through a small
+    script, `hack/ci/vulncheck-scheduled.sh`. The script keeps govulncheck's output and status, and adds
+    one `FAIL: <GO id> <title>` line per advisory. The `ci-failure` issue quotes only lines containing
+    `FAIL`, so this is what puts the advisory into the issue. A failure without an advisory gets one
+    "tool, network or build failure" line instead;
   - has `permissions: contents: read`, no secrets, and no `if:` or `continue-on-error` that could soften
     the step.
 - `Vulnerability scan` is added to the `on.workflow_run.workflows` list of
@@ -50,13 +56,15 @@ a commit.
 - Docs:
   - `docs/security/sca-remediation-policy.md` (VM-05.03 and the tooling table) and
     `docs/development/testing.md` (scheduled tiers) say govulncheck also runs daily on `main`;
-  - the SLA clock text says a scheduled-scan issue is a "first reported" moment.
+  - the SLA clock text says a vulnerability first named by a scheduled-scan issue starts its clock there.
+    A "no advisory" issue is a tool failure and starts no clock.
 
 ## Out of scope
 
-- Renovate `vulnerabilityAlerts`, `osvVulnerabilityAlerts`, or enabling indirect gomod updates. None of
-  them would have produced a fix PR for the 2026-11 advisories (see *Why*). Revisit only if Dependabot
-  starts raising Go alerts for this repository.
+- Update automation: Renovate `vulnerabilityAlerts`, `osvVulnerabilityAlerts`, or enabling indirect
+  gomod updates. This change is about detection: an advisory must be visible on the day it lands, whatever
+  supplies the fix. Enabling indirect updates is a separate Renovate policy question (more PRs, each needing
+  review) and can be raised on its own.
 - Auto-fixing: the scan reports and never opens a PR.
 - Scanning the shipped image or binary (`govulncheck -mode binary`, Trivy on a schedule).
 
@@ -66,3 +74,5 @@ a commit.
   CRD change.
 - A red scan does not block pull requests. It opens a `ci-failure` issue, and that issue stays open, with
   one comment per failing day, until a scan passes.
+- The scan fails closed. A vuln.go.dev or module-proxy outage opens an issue as well. Its FAIL line says
+  "no advisory", and the next green day closes it (CFR-1.6).
