@@ -136,11 +136,13 @@ Test rules:
 
 ## 2. After merge (integrator)
 
-- [ ] 2.1 Dispatch `Vulnerability scan` once on `main` (`gh workflow run vulncheck-scheduled.yaml`) and
+- [x] 2.1 Dispatch `Vulnerability scan` once on `main` (`gh workflow run vulncheck-scheduled.yaml`) and
   record its conclusion in `evidence/post-merge.md` as a smoke run (a dispatched run is never reported,
   CFR-6). Classify a red run by its FAIL lines (advisory or tool failure) before reporting it; never
   silence it. Then record the first scheduled run's conclusion and the CI failure report run it triggered.
   This is the first proof of SVS-2 wiring in production. Then archive the change through a post-merge PR.
+  — closed 2026-11-16 with a gap: smoke run and CFR-6 recorded in evidence/post-merge.md; the first
+  scheduled run is observed by the next session (handoff)
 
 ## B. Branch review fixes
 
