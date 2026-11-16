@@ -34,8 +34,9 @@
 #          (mutation_signal_test.sh, openspec change mutation-testing-signal MUT-1 to MUT-4)
 #          and the breaking-marker test (breaking_marker_test.sh, openspec change
 #          breaking-marker-check BMC-5) and the Renovate policy test (renovate_policy_test.sh,
-#          openspec change dependency-update-automation) must be invoked that way too, so
-#          deleting their steps outright reds here as well.
+#          openspec change dependency-update-automation) and the scheduled vulnerability scan
+#          test (vulncheck_schedule_test.sh, openspec change scheduled-vulncheck SVS-3) must be
+#          invoked that way too, so deleting their steps outright reds here as well.
 #   CWS-7  --self-test mutates a COPY of the tree to break each of CWS-1..CWS-6 and asserts
 #          each check reds with the MESSAGE of the assertion the mutation was built to trip
 #          (a non-zero exit alone is not evidence), plus one unmutated no-op control.
@@ -612,15 +613,16 @@ cws6_guards() {
   # mutation-testing-signal, MUT-1 to MUT-4), and the agent contract test (openspec change
   # public-agent-contract, PAC-1 to PAC-6), the OperatorHub fork sync test (openspec change
   # operatorhub-fork-sync, OFS-5), the breaking-marker test (openspec change
-  # breaking-marker-check, BMC-5) and the Renovate policy test (openspec change
-  # dependency-update-automation, DUA-1 to DUA-8).
+  # breaking-marker-check, BMC-5), the Renovate policy test (openspec change
+  # dependency-update-automation, DUA-1 to DUA-8) and the scheduled vulnerability scan test
+  # (openspec change scheduled-vulncheck, SVS-3).
   local cfc_guards=("${ROOT}"/hack/test/consistency_*_test.sh "${ROOT}/hack/test/go_patch_lag_test.sh"
     "${ROOT}/hack/test/openspec_evidence_markdown_only_test.sh" "${ROOT}/hack/test/ci_failure_report_test.sh"
     "${ROOT}/hack/test/fuzz_retry_test.sh" "${ROOT}/hack/test/test_shuffle_test.sh"
     "${ROOT}/hack/test/readme_quickstart_test.sh" "${ROOT}/hack/test/mutation_signal_test.sh"
     "${ROOT}/hack/test/agent_contract_test.sh" "${ROOT}/hack/test/docs_lock_header_test.sh"
     "${ROOT}/hack/test/operatorhub_fork_sync_test.sh" "${ROOT}/hack/test/breaking_marker_test.sh"
-    "${ROOT}/hack/test/renovate_policy_test.sh")
+    "${ROOT}/hack/test/renovate_policy_test.sh" "${ROOT}/hack/test/vulncheck_schedule_test.sh")
   [[ -f "${cfc_guards[0]}" ]] ||
     fail "CFC-6: no hack/test/consistency_*_test.sh guard found -- the cross-file consistency gates are gone"
   for script in "${cfc_guards[@]}"; do
@@ -1173,6 +1175,25 @@ mutant_rejected "CFC-6 Renovate policy guard unwired" "CFC-6: guard hack/test/re
   set -euo pipefail
   yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"renovate_policy_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
   if grep -q "bash hack/test/renovate_policy_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+
+# The scheduled vulnerability scan test (openspec change scheduled-vulncheck, SVS-3): deleting
+# either of its lint steps, or both, must red here (with one step left the guard still runs in
+# CI, so the CWS-6 mode check fires first; with none, CFC-6's named list does).
+mutant_rejected "CFC-6 vulnerability scan guard unwired" "CFC-6: guard hack/test/vulncheck_schedule_test.sh is not run" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"vulncheck_schedule_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -q "bash hack/test/vulncheck_schedule_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+mutant_rejected "CFC-6 vulnerability scan guard loses its plain step" "CWS-6: guard script hack/test/vulncheck_schedule_test.sh runs in CI but its 'bare' mode is not invoked" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs.lint.steps[] | select((.run // \"\") == \"bash hack/test/vulncheck_schedule_test.sh\"))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -qx " *run: bash hack/test/vulncheck_schedule_test.sh" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+mutant_rejected "CFC-6 vulnerability scan guard loses its self-test step" "CWS-6: guard script hack/test/vulncheck_schedule_test.sh runs in CI but its '--self-test' mode is not invoked" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs.lint.steps[] | select((.run // \"\") == \"bash hack/test/vulncheck_schedule_test.sh --self-test\"))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -q "vulncheck_schedule_test.sh --self-test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
 '
 
 # CFC-6: the required modes are CFC-6's, not the guard's: stripping a guard's --self-test handling

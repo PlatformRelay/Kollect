@@ -25,6 +25,7 @@ on:
       - Go patch lag
       - Test shuffle
       - Mutation testing
+      - Vulnerability scan
     types: [completed]
 
 permissions:

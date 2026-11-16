@@ -1,0 +1,47 @@
+task: [install] go mod download
+task: [install] go mod verify
+all modules verified
+task: [vulncheck] go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+go: downloading golang.org/x/vuln v1.9.0
+go: downloading golang.org/x/telemetry v0.0.0-20261010193011-f71dc92da45e
+go: downloading golang.org/x/tools v0.52.0
+=== Symbol Results ===
+
+Vulnerability #1: GO-2026-6888
+    Excessive memory allocation when decompressing crafted streams in
+    github.com/andybalholm/brotli
+  More info: https://pkg.go.dev/vuln/GO-2026-6888
+  Module: github.com/andybalholm/brotli
+    Found in: github.com/andybalholm/brotli@v1.1.1
+    Fixed in: github.com/andybalholm/brotli@v1.2.7
+    Example traces found:
+      #1: internal/sink/parquet/encode.go:90:24: parquet.EncodeItems calls parquet.Writer.Close, which eventually calls brotli.Reader.Read
+      #2: internal/errors/errors.go:39:20: errors.ClassError.Error calls brotli.decodeError.Error
+
+Vulnerability #2: GO-2026-6865
+    Panic on two-block frames in github.com/klauspost/compress
+  More info: https://pkg.go.dev/vuln/GO-2026-6865
+  Module: github.com/klauspost/compress
+    Found in: github.com/klauspost/compress@v1.20.1
+    Fixed in: github.com/klauspost/compress@v1.20.2
+    Example traces found:
+      #1: internal/sink/mongodb/backend.go:107:23: mongodb.NewBackend calls mongo.Client.Ping, which eventually calls fse.Compress
+      #2: internal/sink/mongodb/backend.go:107:23: mongodb.NewBackend calls mongo.Client.Ping, which eventually calls fse.Decompress
+
+Vulnerability #3: GO-2026-6859
+    HTTP/1 server crash due to MaxBytesReader header race in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6859
+  Standard library
+    Found in: net/http@go1.27.3
+    Fixed in: net/http@go1.27.4
+    Example traces found:
+      #1: hack/tools/integrationevidence/discover.go:12:2: integrationevidence.init calls build.init, which eventually calls http.CanonicalHeaderKey
+      #2: internal/sink/s3/backend.go:224:26: s3.redactedRedirectClient.Do calls http.Client.Do
+
+Your code is affected by 3 vulnerabilities from 2 modules and the Go standard library.
+This scan also found 0 vulnerabilities in packages you import and 1
+vulnerability in modules you require, but your code doesn't appear to call these
+vulnerabilities.
+Use '-show verbose' for more details.
+exit status 3
+task: Failed to run task "vulncheck": exit status 1

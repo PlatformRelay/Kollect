@@ -1,0 +1,3 @@
+task: [install] go mod download
+go: go.mod requires go >= 1.27.4 (running go 1.27.1; GOTOOLCHAIN=local)
+task: Failed to run task "vulncheck": task: Failed to run task "install": exit status 1
