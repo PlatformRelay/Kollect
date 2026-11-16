@@ -43,7 +43,7 @@ a commit.
 
 - A new workflow, `.github/workflows/vulncheck-scheduled.yaml`, named `Vulnerability scan`:
   - runs `task vulncheck` on the default branch once a day and on `workflow_dispatch`, through a small
-    script, `hack/ci/vulncheck-scheduled.sh`. The script keeps govulncheck's output and status, and adds
+    script, `hack/ci/vulncheck-scheduled.sh`. The script keeps the output and `task`'s exit status, and adds
     one `FAIL: <GO id> <title>` line per advisory. The `ci-failure` issue quotes only lines containing
     `FAIL`, so this is what puts the advisory into the issue. A failure without an advisory gets one
     "tool, network or build failure" line instead;
