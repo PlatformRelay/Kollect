@@ -141,3 +141,30 @@ Test rules:
   CFR-6). Classify a red run by its FAIL lines (advisory or tool failure) before reporting it; never
   silence it. Then record the first scheduled run's conclusion and the CI failure report run it triggered.
   This is the first proof of SVS-2 wiring in production. Then archive the change through a post-merge PR.
+
+## B. Branch review fixes
+
+- [ ] B1.1 Fix branch review round 1 (`reviews/B-branch/round-1/`), tests first, in one commit:
+  - (CRITICAL) the scan step's name contains `FAIL`. `gh run view --log-failed` prefixes each line with
+    `<job>\t<step>\t`, so every line of the step matches the excerpt filter, and 50 download lines push
+    the advisory out of the issue. Rename the step without `FAIL`. V-2 gains a check, with a mutant, that
+    no job or step `name:` contains `FAIL`. V-3 gains an integration case: the script's output for
+    `advisories.txt`, preceded by more than 50 ordinary lines and prefixed as `gh` prints it
+    (job name, a tab, the step name, a tab, a timestamp, then the line), is fed through `hack/ci/ci-failure-issue-body.sh` (its real
+    arguments) and all three GO ids appear in the excerpt. A mutant restoring a `FAIL` step name must turn
+    that case red. Read the step name from the workflow file, so the case breaks when the name changes;
+  - capture failure: keep `tee`'s status too (SVS-1.3). Add V-3 cases with a failing `tee` on
+    `PATH`, for task exit 0 (the script exits 1) and for task exit 201 (it exits 201). Both print the
+    capture-failure line;
+  - wrapped titles: join continuation lines (SVS-1.3). The GO-2026-6888 line then ends with
+    `github.com/andybalholm/brotli` when the fixture wraps it there; update V-3a and V-3e expectations
+    from the spec;
+  - the token check also matches `github[` inside `${{ }}`, with a mutant;
+  - timing wording: the policy rows, `docs/development/testing.md`, the workflow header and the proposal
+    say "on the next scheduled scan, within a day, without waiting for a code change", never "on the day it
+    lands" or "before it blocks the next merge";
+  - `evidence/G1.md`: replace the home-relative Task path with "Task 3.54.0";
+  - requirement ids: the script's rules are now SVS-1.3 (SVS-1.2 is the step shape); update every comment,
+    message and evidence row that cites them.
+
+  Gates: as in *Test rules*.

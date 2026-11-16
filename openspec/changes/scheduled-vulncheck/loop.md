@@ -1,9 +1,9 @@
 # Loop — scheduled-vulncheck (spec-loop-duo run state)
 
 Repo: worktree `scheduled-vulncheck` · Branch: `ci/scheduled-vulncheck` · Base: `origin/main` @ `f31f94ef3` · Started: 2026-11-16 · Reviewers: two-model duo
-Next: L — G1
+Next: B1.1 (branch review round-1 fixes), then B round 2 (last)
 Task prompt: local, `agent-context/loops/scheduled-vulncheck/task-prompt.md` (harness, not committed)
-Budget: paid review legs 0/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-16) · estimate: R 1, G1 1 (CI diff → extra leg trigger), T0.1 0, B 2 → planned 4
+Budget: paid review legs 4/12 (R1, R2, G1, B1) (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-16) · estimate: R 1, G1 1 (CI diff → extra leg trigger), T0.1 0, B 2 → planned 4
 
 Backlog VULNCHECK-SCHEDULED (P2). Spec set: proposal.md, specs/scheduled-vulnerability-scan/spec.md,
 tasks.md (no design.md: no identity, persisted metadata, compatibility or migration change).
@@ -14,8 +14,8 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
   action shas the new workflow pins; whichever lands second follows the other
 - [x] P plan + tasks — written; spec set committed: (this commit)
 - [x] R spec-set review — round 1 on `6e83424eb`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; 13 fix, 1 partly rejected (`reviews/R-spec-set/round-1/verification.md`); CRITICAL had a mechanical fix both legs named → round 2 (last) on `067e0ace7`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; the CRITICAL (Task's exit status, not govulncheck's) is a mechanical fix both legs named, verified against the 2026-11-12 CI log (`Process completed with exit code 201`); all 9 findings fixed (`reviews/R-spec-set/round-2/verification.md`). No third round (limit); T0.1 probes the Task status and title format, and stage B reviews the final set
-- [ ] L task loop
-- [ ] B branch review
+- [x] L task loop — T0.1, G1 closed (see *Tasks*); B1.1 from stage B
+- [ ] B branch review — holistic `task check` on `0b2d1f898`+spec fix: exit 1, four gates red, none from this branch (`test`: fresh-worktree `setup-envtest@release-0.25` install fails, backlog ENVTEST-INSTALL-025, CI runs `task coverage` and is green; `demo_04_samples_kustomize` kubectl shim; two `operator-sdk` guards); every gate the branch touches green. Round 1: reviewer-a BLOCK (1 CRITICAL), reviewer-b CONCERNS; CRITICAL verified (`hack/ci/ci-failure-report.sh:199` reads `gh run view --log-failed`, whose lines carry the step name) → B1.1, then round 2 (last). Rebase onto main after T0.1 rewrote the spec-set commits: R round 1 reviewed `6e83424eb` (now `904371163`), round 2 `067e0ace7` (now `74630a128`)
 - [ ] Hand-off
 
 ## Fitness functions
@@ -73,3 +73,13 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 | R2 | Title whitespace unspecified | NOTE | reviewer-b | fix | SVS-1.2 trimmed | no |
 | R2 | `timed_out` conclusion not named | NOTE | reviewer-b | fix | SVS-1 scenario | no |
 | R2 | Fixture lacks the stdlib advisory | NOTE | reviewer-b | fix | test rules: stdlib entry added to the fixture | no |
+| B1 | Step name contains `FAIL`; `gh --log-failed` prefixes it to every line, so the excerpt fills with noise and drops the advisory | CRITICAL | reviewer-a | fix | B1.1; spec SVS-1.2 name rule | no |
+| B1 | No test feeds the script's output through the real body builder | WARNING | reviewer-b | fix | B1.1 integration case | no |
+| B1 | `tee` failure ignored; output may be lost or misclassified | WARNING | reviewer-a | fix | B1.1; spec SVS-1.3 capture scenario | no |
+| B1 | Docs/policy promise detection "on the day it lands" | WARNING | reviewer-a, reviewer-b | fix | B1.1 wording | no |
+| B1 | Wrapped titles drop the module name | NOTE | reviewer-b | fix | spec SVS-1.3 joins continuation lines; B1.1 | no |
+| B1 | Top-level key set stronger than spec; zero-padded cron | NOTE | reviewer-b | fix | spec SVS-1.1 exact key set; cron "no leading zero" | no |
+| B1 | Token check misses `github[...]` | NOTE | reviewer-b | fix | B1.1 | no |
+| B1 | Excerpt caps and header-format drift unbounded in the contract | NOTE | reviewer-a | fix | spec SVS-2 "within the body builder's caps" | no |
+| B1 | Proposal says govulncheck's status | NOTE | reviewer-b | fix | proposal | no |
+| B1 | Home-relative tool path in G1 evidence | NOTE | reviewer-b | fix | B1.1 | no |
