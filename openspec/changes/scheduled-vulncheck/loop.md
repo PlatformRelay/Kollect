@@ -1,6 +1,6 @@
 # Loop — scheduled-vulncheck (spec-loop-duo run state)
 
-Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/scheduled-vulncheck` · Branch: `ci/scheduled-vulncheck` · Base: `origin/main` @ `f31f94ef3` · Started: 2026-11-16 · Reviewers: two-model duo
+Repo: worktree `scheduled-vulncheck` · Branch: `ci/scheduled-vulncheck` · Base: `origin/main` @ `f31f94ef3` · Started: 2026-11-16 · Reviewers: two-model duo
 Next: R spec-set review
 Task prompt: local, `agent-context/loops/scheduled-vulncheck/task-prompt.md` (harness, not committed)
 Budget: paid review legs 0/12 (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-16) · estimate: R 1, G1 1 (CI diff → extra leg trigger), T0.1 0, B 2 → planned 4
@@ -13,7 +13,7 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 - [x] 0 orient — new change; open PRs touching these files: Renovate #552 (github actions) may bump the
   action shas the new workflow pins; whichever lands second follows the other
 - [x] P plan + tasks — written; spec set committed: (this commit)
-- [ ] R spec-set review
+- [ ] R spec-set review — round 1 on `6e83424eb`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; all findings verified, 13 fix, 1 reject (`reviews/R-spec-set/round-1/verification.md`); the CRITICAL has a mechanical fix both legs named → round 2 (last)
 - [ ] L task loop
 - [ ] B branch review
 - [ ] Hand-off
@@ -41,3 +41,17 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 
 | Stage | Finding (one line) | Sev | Reviewers | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| R1 | 40-hex `uses:` rule contradicts the required local go-cache action | CRITICAL | reviewer-a, reviewer-b | fix | spec SVS-1.2 exact step shape; tasks V-2 (mutation W1 model) | no |
+| R1 | No test that the cron is daily, or that a trigger is removed | WARNING | reviewer-a, reviewer-b | fix | SVS-1 cron fields; V-2 mutants | no |
+| R1 | CWS-6 `cfc_guards` not named; guard could be unwired silently | WARNING | reviewer-b (reviewer-a NOTE) | fix | SVS-3 + V-6 | no |
+| R1 | Issue excerpt is FAIL-lines only; govulncheck prints none, so the issue cannot name the advisory | WARNING | reviewer-b | fix | new SVS-1.2 wrapper script printing `FAIL: <GO id>` lines; V-3 | no |
+| R1 | Post-merge: red run assumed an advisory; dispatch never exercises the reporter | WARNING | reviewer-a | fix | tasks 2.1 classify by FAIL line; observe first scheduled run | no |
+| R1 | SLA clock could start on an infrastructure failure | WARNING | reviewer-a | fix | tasks 1.3 wording; proposal | no |
+| R1 | "Every open PR red at once" overstates; checks re-run only on new runs | WARNING | reviewer-a | fix | proposal *Why*; T0.1 records the run ids | no |
+| R1 | Renovate indirect-updates exclusion justified wrongly | WARNING | reviewer-a | fix | proposal *Out of scope* reworded (detection vs. fix supply) | no |
+| R1 | `ci_workflow_security_test.sh` is not the zizmor audit; run the audit, shellcheck, toolchain pins | WARNING | reviewer-a | fix | tasks test rules; T0.1 names the zizmor command | no |
+| R1 | timeout only checked for presence | WARNING | reviewer-a | fix | SVS-1 positive integer; V-2 | no |
+| R1 | `secrets.` grep trips on comments, misses `github.token` | NOTE | reviewer-b | fix | SVS-3; V-2 expression-only, comment control | no |
+| R1 | Concurrency unspecified; cancel-in-progress would fake a failure | NOTE | reviewer-b | fix | SVS-1 no `concurrency:`; V-2 top-level keys | no |
+| R1 | Transient DB outage opens an issue | NOTE | reviewer-b | fix | proposal *Impact* | no |
+| R1 | loop.md absolute home path / harness wording | NOTE | reviewer-a | fix (path) / reject (wording) | path made relative; "two-model duo" is the loop convention in every archived change | no |
