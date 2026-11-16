@@ -1,12 +1,15 @@
 # SVS-1 to SVS-3 (openspec change scheduled-vulncheck): govulncheck on main every day, so an
-# advisory published against code kollect calls turns a run red on the day it lands, not on the
-# next code push. The ci.yaml vulncheck job stays the merge gate; this run only makes the gate's
-# state visible. hack/ci/vulncheck-scheduled.sh runs `task vulncheck`, keeps task's exit status
-# and prints one FAIL line per advisory (or one for a tool, network or build failure), which the
-# CI failure report copies into its issue: ci-failure-report.yaml lists this workflow by name.
+# advisory published against code kollect calls turns a run red on the next scheduled scan, within
+# a day, without waiting for a code change. The ci.yaml vulncheck job stays the merge gate; this
+# run only makes the gate's state visible. hack/ci/vulncheck-scheduled.sh runs `task vulncheck`,
+# keeps task's exit status and prints one FAIL line per advisory (or one for a tool, network or
+# build failure), which the CI failure report copies into its issue: ci-failure-report.yaml lists
+# this workflow by name.
+# No job or step name holds FAIL (SVS-1.2): gh run view --log-failed, which the report reads, starts
+# every log line with them, so such a name would make every line match the excerpt filter.
 # No concurrency group, env, if or continue-on-error: a run is never cancelled into a failure,
 # skipped or softened, and the scan's environment is the job's own.
-# Pinned by hack/test/vulncheck_schedule_test.sh (V-1, V-2).
+# Pinned by hack/test/vulncheck_schedule_test.sh (V-1, V-2, V-3f).
 name: Vulnerability scan
 
 on:
@@ -35,5 +38,5 @@ jobs:
         with:
           version: 3.54.0
 
-      - name: govulncheck, one FAIL line per advisory
+      - name: govulncheck, one line per advisory
         run: bash hack/ci/vulncheck-scheduled.sh

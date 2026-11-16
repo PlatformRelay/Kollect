@@ -56,7 +56,7 @@ Test rules:
   A claim that does not hold stops the loop with a decision request. — closed 2026-11-16, evidence:
   evidence/T0.1.md (two narrative claims corrected in proposal.md by the orchestrator)
 
-## 1. Daily vulnerability scan, reported (SVS-1, SVS-1.1, SVS-1.2, SVS-2, SVS-3)
+## 1. Daily vulnerability scan, reported (SVS-1, SVS-1.1, SVS-1.2, SVS-1.3, SVS-2, SVS-3)
 
 - [x] 1.1 Tests first. Add the script as a stub that exits 0 without running anything. The cases marked
   *base red* fail on that base; the rest are proven by the self-test after 1.2:
@@ -110,7 +110,7 @@ Test rules:
     exposes a guard nobody runs. — closed 2026-11-16, evidence: evidence/G1.md
 - [x] 1.2 Implement:
   - the script: `set -uo pipefail`; capture `task vulncheck`'s combined output to a temp file while
-    printing it; keep `task`'s status (`PIPESTATUS`, not the tee's); print the SVS-1.2 lines; exit with that
+    printing it; keep `task`'s status (`PIPESTATUS`, not the tee's); print the SVS-1.3 lines; exit with that
     status;
   - the workflow:
     - the four steps;
@@ -144,7 +144,7 @@ Test rules:
 
 ## B. Branch review fixes
 
-- [ ] B1.1 Fix branch review round 1 (`reviews/B-branch/round-1/`), tests first, in one commit:
+- [x] B1.1 Fix branch review round 1 (`reviews/B-branch/round-1/`), tests first, in one commit:
   - (CRITICAL) the scan step's name contains `FAIL`. `gh run view --log-failed` prefixes each line with
     `<job>\t<step>\t`, so every line of the step matches the excerpt filter, and 50 download lines push
     the advisory out of the issue. Rename the step without `FAIL`. V-2 gains a check, with a mutant, that
@@ -167,4 +167,4 @@ Test rules:
   - requirement ids: the script's rules are now SVS-1.3 (SVS-1.2 is the step shape); update every comment,
     message and evidence row that cites them.
 
-  Gates: as in *Test rules*.
+  Gates: as in *Test rules*. — closed 2026-11-16, evidence: evidence/B1.1.md

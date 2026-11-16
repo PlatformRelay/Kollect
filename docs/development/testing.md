@@ -133,7 +133,7 @@ the maintainer to install the [Codecov GitHub App](https://github.com/apps/codec
 | `e2e-extended.yaml` | L4 Tier 1 | Optional git-export, multitenant, tenant-mode, webhook profile |
 | `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) + race |
 | `test-e2e.yaml` | L4 Tier 3 | Manual full matrix (`workflow_dispatch`) |
-| `vulncheck-scheduled.yaml` | Daily on `main` | `govulncheck` via `task vulncheck`; one `FAIL:` line per advisory; a failed scheduled run opens a `ci-failure` issue (`hack/test/vulncheck_schedule_test.sh`) |
+| `vulncheck-scheduled.yaml` | Daily on `main` | `govulncheck` via `task vulncheck`; one `FAIL:` line per advisory; a failed scheduled run opens a `ci-failure` issue, so a new advisory shows on the next scheduled scan, within a day, without waiting for a code change (`hack/test/vulncheck_schedule_test.sh`) |
 | `release.yaml` | Supply chain | Image signing, SBOM, chart publish |
 
 ### Nightly race detector (HY-07 / TEST-02)
