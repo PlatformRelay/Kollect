@@ -31,11 +31,17 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 
 ## Tasks
 
+- T0.1 · BLOCKED (SPECIFICATION) · proposal *Why*: `main` red 2026-11-06..13 (not 11-12/13), 7 of 10 Renovate PRs red (not 9), #492 was the maintainer's · every other claim holds · `evidence/T0.1.md` · review `reviews/L-tasks/T0.1/` reviewer A REQUEST_CHANGES (evidence: real `task vulncheck` probe missing), fixed, no round 2
+
 ## Known red
 
 ## Test changes
 
 ## Lessons
+
+- T0.1: read job logs with `gh run view <run> --log --job <job>`; `gh api .../jobs/<id>/logs` refuses output with escape sequences.
+- T0.1: the `task` first on `PATH` here is 3.53.1; prove Task 3.54.0 with `~/.local/share/mise/installs/task/3.54.0/task`.
+- T0.1: CI run 43406013666 holds all three advisories (stdlib included) in one real `task vulncheck` output; govulncheck wraps titles at 80 columns.
 
 ## Triage
 
