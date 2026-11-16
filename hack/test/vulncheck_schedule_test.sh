@@ -255,7 +255,8 @@ FAIL: GO-2099-0005"
     soft="$(wj '[.. | objects | keys[] | select(. == "continue-on-error" or . == "if" or . == "shell" or . == "defaults" or . == "concurrency" or . == "env")] | unique | join(",")')"
     [[ -z "${soft}" ]] || c "[${soft}] appears in the workflow: nothing may skip, soften, cancel or re-environment the scan"
     # shellcheck disable=SC2016 # the GitHub expression syntax is the text searched for
-    tok="$(wj '[.. | strings | select(test("\\$\\{\\{[^}]*(secrets|github\\.token|github\\[)"))] | join(" ; ")')"
+    # Context keys resolve case-insensitively and allow spaces around . and [, so match the same way.
+    tok="$(wj '[.. | strings | select(test("\\$\\{\\{[^}]*(secrets|github\\s*\\.\\s*token|github\\s*\\[)"; "i"))] | join(" ; ")')"
     [[ -z "${tok}" ]] || c "a secret or token expression appears (${tok}); the scan reads public data and needs none"
     # SVS-1.2: gh run view --log-failed starts every log line with the job and the step name, so a
     # name holding FAIL makes every line of the step match the issue's FAIL excerpt.
@@ -546,6 +547,12 @@ control "the scan step written as a literal block" \
     yqe "${W}" '.jobs[].steps[0].with.token = "${{ github.token }}"'
   judge "a github[...] token expression (V-2)" "V-2: a secret or token expression appears" \
     yqe "${W}" ".jobs[].steps[0].with.token = \"\${{ github['token'] }}\""
+  judge "a github.TOKEN expression, any case (V-2)" "V-2: a secret or token expression appears" \
+    yqe "${W}" '.jobs[].steps[3].name = "${{ github.TOKEN }}"'
+  judge "a spaced github [ 'token' ] expression (V-2)" "V-2: a secret or token expression appears" \
+    yqe "${W}" ".jobs[].steps[3].name = \"\${{ github [ 'token' ] }}\""
+  judge "a Secrets.X expression, any case (V-2)" "V-2: a secret or token expression appears" \
+    yqe "${W}" '.jobs[].steps[3].name = "${{ Secrets.X }}"'
   judge "the scan step named with FAIL (V-2)" "V-2: a job or step name holds FAIL (govulncheck, one FAIL line per advisory)" \
     yqe "${W}" '.jobs[].steps[3].name = "govulncheck, one FAIL line per advisory"'
   judge "the job named with FAIL (V-2)" "V-2: a job or step name holds FAIL (vulncheck FAIL)" \

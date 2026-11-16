@@ -1,9 +1,9 @@
 # Loop — scheduled-vulncheck (spec-loop-duo run state)
 
 Repo: worktree `scheduled-vulncheck` · Branch: `ci/scheduled-vulncheck` · Base: `origin/main` @ `f31f94ef3` · Started: 2026-11-16 · Reviewers: two-model duo
-Next: B1.1 (branch review round-1 fixes), then B round 2 (last)
+Next: hand-off — PR, CI, merge; then task 2.1 (integrator)
 Task prompt: local, `agent-context/loops/scheduled-vulncheck/task-prompt.md` (harness, not committed)
-Budget: paid review legs 4/12 (R1, R2, G1, B1) (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-16) · estimate: R 1, G1 1 (CI diff → extra leg trigger), T0.1 0, B 2 → planned 4
+Budget: paid review legs 6/12 (R1, R2, G1, B1, B1.1, B2) (B reserve 3; default) · active hours 0/8 (sessions: 2026-11-16) · estimate: R 1, G1 1 (CI diff → extra leg trigger), T0.1 0, B 2 → planned 4
 
 Backlog VULNCHECK-SCHEDULED (P2). Spec set: proposal.md, specs/scheduled-vulnerability-scan/spec.md,
 tasks.md (no design.md: no identity, persisted metadata, compatibility or migration change).
@@ -15,7 +15,7 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 - [x] P plan + tasks — written; spec set committed: (this commit)
 - [x] R spec-set review — round 1 on `6e83424eb`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; 13 fix, 1 partly rejected (`reviews/R-spec-set/round-1/verification.md`); CRITICAL had a mechanical fix both legs named → round 2 (last) on `067e0ace7`: reviewer-a REQUEST_CHANGES (1 CRITICAL), reviewer-b CONCERNS; the CRITICAL (Task's exit status, not govulncheck's) is a mechanical fix both legs named, verified against the 2026-11-12 CI log (`Process completed with exit code 201`); all 9 findings fixed (`reviews/R-spec-set/round-2/verification.md`). No third round (limit); T0.1 probes the Task status and title format, and stage B reviews the final set
 - [x] L task loop — T0.1, G1 closed (see *Tasks*); B1.1 from stage B
-- [ ] B branch review — holistic `task check` on `0b2d1f898`+spec fix: exit 1, four gates red, none from this branch (`test`: fresh-worktree `setup-envtest@release-0.25` install fails, backlog ENVTEST-INSTALL-025, CI runs `task coverage` and is green; `demo_04_samples_kustomize` kubectl shim; two `operator-sdk` guards); every gate the branch touches green. Round 1: reviewer-a BLOCK (1 CRITICAL), reviewer-b CONCERNS; CRITICAL verified (`hack/ci/ci-failure-report.sh:199` reads `gh run view --log-failed`, whose lines carry the step name) → B1.1, then round 2 (last). Rebase onto main after T0.1 rewrote the spec-set commits: R round 1 reviewed `6e83424eb` (now `904371163`), round 2 `067e0ace7` (now `74630a128`)
+- [x] B branch review — holistic `task check` on `0b2d1f898`+spec fix: exit 1, four gates red, none from this branch (`test`: fresh-worktree `setup-envtest@release-0.25` install fails, backlog ENVTEST-INSTALL-025, CI runs `task coverage` and is green; `demo_04_samples_kustomize` kubectl shim; two `operator-sdk` guards); every gate the branch touches green. Round 1: reviewer-a BLOCK (1 CRITICAL), reviewer-b CONCERNS; CRITICAL verified (`hack/ci/ci-failure-report.sh:199` reads `gh run view --log-failed`, whose lines carry the step name) → B1.1, then round 2 (last). Rebase onto main after T0.1 rewrote the spec-set commits: R round 1 reviewed `6e83424eb` (now `904371163`), round 2 `067e0ace7` (now `74630a128`). Round 2 (last) on `e1c405ec4`: reviewer-a BLOCK (1 CRITICAL: token check case-sensitive, `github.TOKEN` / `github [ 'token' ]` bypass it), reviewer-b CLEAN (notes: guard stronger than spec on scan-step keys and setup-task version; `mktemp` line unspecified). CRITICAL verified (three new mutants survived the old check, exit 0) and fixed after round 2 without another review, as the two-round rule allows for a verified defect; notes fixed in the spec (`reviews/B-branch/round-2/verification.md`)
 - [ ] Hand-off
 
 ## Fitness functions
@@ -94,3 +94,7 @@ tasks.md (no design.md: no identity, persisted metadata, compatibility or migrat
 | B1 | Excerpt caps and header-format drift unbounded in the contract | NOTE | reviewer-a | fix | spec SVS-2 "within the body builder's caps" | no |
 | B1 | Proposal says govulncheck's status | NOTE | reviewer-b | fix | proposal | no |
 | B1 | Home-relative tool path in G1 evidence | NOTE | reviewer-b | fix | B1.1 | no |
+| B2 | Token-expression check is case-sensitive and space-strict; `${{ github.TOKEN }}` passes | CRITICAL | reviewer-a | fix | `vulncheck_schedule_test.sh` case-insensitive, spaced match + 3 mutants (red before, green after); SVS-3 scenario | no |
+| B2 | Guard stricter than spec on scan-step keys and setup-task version reuse | NOTE | reviewer-b | fix | spec SVS-1.2 (the tighter rule is the spec now) | no |
+| B2 | `mktemp` failure line unspecified | NOTE | reviewer-b | fix | spec SVS-1.3 scenario | no |
+| B2 | ANSI or trailing-text headers give the generic line | NOTE | reviewer-a | reject | not emitted by the pinned govulncheck with this command; the run stays red with a FAIL line | no |
