@@ -1130,11 +1130,30 @@ func (e *Engine) namespaceMatches(
 	return namespaceMatchesSelector(target.Spec.NamespaceSelector, meta.Labels)
 }
 
-// clusterScopedOwnerNamespace picks one synthetic target for a cluster-scoped
-// object. The smallest namespace name stays put for an unchanged target set.
+// clusterScopedOwnerNamespace picks one target for a cluster-scoped object.
+// A cluster target registers the same name in every workload namespace, so
+// that name wins over a single namespaced target whose namespace sorts first.
+// Within the winning name, the smallest namespace stays put.
 func clusterScopedOwnerNamespace(states []targetState) string {
+	counts := make(map[string]int, len(states))
+	for i := range states {
+		counts[states[i].target.Name]++
+	}
+
+	bestName := ""
+	bestCount := 0
+	for name, n := range counts {
+		if n > bestCount || (n == bestCount && (bestName == "" || name < bestName)) {
+			bestName = name
+			bestCount = n
+		}
+	}
+
 	owner := ""
 	for i := range states {
+		if states[i].target.Name != bestName {
+			continue
+		}
 		ns := states[i].target.Namespace
 		if owner == "" || ns < owner {
 			owner = ns
