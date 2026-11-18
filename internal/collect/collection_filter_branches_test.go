@@ -176,10 +176,11 @@ func TestResourceMatchesRules_skipBranches(t *testing.T) {
 		t.Fatal("namespace absent from meta has no labels and must not match a label-gated rule")
 	}
 
-	// Cluster-scoped objects fall back to the "default" namespace for rule matching.
-	defaultLabeled := map[string]NamespaceMeta{"default": {Labels: labels.Set{"tier": "app"}}}
-	if !ResourceMatchesRules(objIn(""), cmGVR, target, profile, rules, defaultLabeled) {
-		t.Fatal("empty-namespace object must be evaluated against the default namespace meta")
+	// A cluster-scoped object has no namespace, so the default namespace's labels
+	// must not decide the rule. A selector that default fails still matches.
+	defaultInfra := map[string]NamespaceMeta{"default": {Labels: labels.Set{"tier": "infra"}}}
+	if !ResourceMatchesRules(objIn(""), cmGVR, target, profile, rules, defaultInfra) {
+		t.Fatal("cluster-scoped object must not be filtered by the default namespace")
 	}
 }
 

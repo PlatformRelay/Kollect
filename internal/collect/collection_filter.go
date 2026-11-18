@@ -10,7 +10,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -167,9 +166,7 @@ func ResourceMatchesRules(
 	}
 
 	resourceNS := u.GetNamespace()
-	if resourceNS == "" {
-		resourceNS = corev1.NamespaceDefault
-	}
+	clusterScoped := resourceNS == ""
 
 	internalMeta := namespaceMetaMapFromFilter(nsMeta)
 	meta, ok := internalMeta[resourceNS]
@@ -182,7 +179,9 @@ func ResourceMatchesRules(
 			continue
 		}
 
-		if rule.NamespaceSel != nil && !rule.NamespaceSel.Matches(meta.Labels) {
+		// A cluster-scoped object has no namespace, so a namespace selector
+		// (including the labels of "default") does not apply to it.
+		if !clusterScoped && rule.NamespaceSel != nil && !rule.NamespaceSel.Matches(meta.Labels) {
 			continue
 		}
 
