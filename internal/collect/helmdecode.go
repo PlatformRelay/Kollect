@@ -28,6 +28,10 @@ const (
 
 var magicGzip = []byte{0x1f, 0x8b, 0x08}
 
+// maxHelmReleaseBytes bounds the inflated helm release. The Secret itself is
+// about 1MiB; gzip of that size can expand past the operator memory limit.
+const maxHelmReleaseBytes = 32 << 20
+
 // helmReleaseFieldAliases map profile-friendly names to paths in the decoded release JSON.
 var helmReleaseFieldAliases = map[string]string{
 	"releaseName":  "name",
@@ -120,10 +124,13 @@ func decodeHelmReleasePayload(payload []byte) (map[string]any, error) {
 			return nil, fmt.Errorf("gzip decode release: %w", gzipErr)
 		}
 
-		decompressed, readErr := io.ReadAll(gr)
+		decompressed, readErr := io.ReadAll(io.LimitReader(gr, maxHelmReleaseBytes+1))
 		_ = gr.Close()
 		if readErr != nil {
 			return nil, fmt.Errorf("read gzip release: %w", readErr)
+		}
+		if int64(len(decompressed)) > maxHelmReleaseBytes {
+			return nil, fmt.Errorf("helm release gzip exceeds %d bytes", maxHelmReleaseBytes)
 		}
 
 		decoded = decompressed
