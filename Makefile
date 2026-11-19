@@ -205,15 +205,21 @@ envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
+# Once the custom build below replaces go-install-tool's symlink, $(GOLANGCI_LINT) is a plain file
+# and make cannot tell its version. The target is a stamp named after the pin instead: bumping
+# GOLANGCI_LINT_VERSION, or a newer hack/tooling/.custom-gcl.yml (plugin pins), rebuilds.
+GOLANGCI_LINT_STAMP = $(LOCALBIN)/.golangci-lint-$(GOLANGCI_LINT_VERSION).stamp
 .PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(LOCALBIN)
+golangci-lint: $(GOLANGCI_LINT_STAMP) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT_STAMP): $(wildcard hack/tooling/.custom-gcl.yml) | $(LOCALBIN)
+	@rm -f "$(LOCALBIN)"/.golangci-lint-*.stamp
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 	@test -f hack/tooling/.custom-gcl.yml && { \
 		echo "Building custom golangci-lint with plugins..." && \
 		cd hack/tooling && $(GOLANGCI_LINT) custom --destination $(abspath $(LOCALBIN)) --name golangci-lint-custom && \
 		mv -f $(LOCALBIN)/golangci-lint-custom $(GOLANGCI_LINT); \
 	} || true
+	@touch "$@"
 
 # operator-sdk is NOT installed via go-install-tool: the module pulls in
 # github.com/proglottis/gpgme, so `go install .../cmd/operator-sdk@version` needs cgo and

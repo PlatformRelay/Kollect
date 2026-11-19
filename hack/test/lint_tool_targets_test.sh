@@ -4,6 +4,9 @@
 # format:check: its golangci-lint step must fail on a formatting diff and on a linter error. It
 # used to send stderr to /dev/null and test only for empty output, so a linter that failed to
 # start (bad config, wrong binary) passed as "nothing to format".
+#
+# make golangci-lint: a version bump or a newer .custom-gcl.yml must rebuild. The target used to
+# be the binary itself, a plain file after the custom build, so a bump left the old linter.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -41,5 +44,24 @@ pass "format:check fails on a formatting diff"
 pass "format:check fails on a diff even when the linter exits 0"
 [[ "$(run_fmt_step 3 '' 'config error')" == 1 ]] || fail "format:check passes when golangci-lint itself fails"
 pass "format:check fails when golangci-lint itself fails"
+
+# plans_install <version>: does `make -n golangci-lint` against a LOCALBIN holding an installed
+# v2.15.0 (binary plus stamp) plan a go install for <version>?
+plans_install() {
+  make -n --no-print-directory -C "${ROOT}" golangci-lint LOCALBIN="${TMP}/bin" GOLANGCI_LINT_VERSION="$1" 2>/dev/null |
+    grep -q 'go install' && echo yes || echo no
+}
+mkdir -p "${TMP}/bin"
+: >"${TMP}/bin/golangci-lint"
+: >"${TMP}/bin/.golangci-lint-v2.15.0.stamp"
+[[ "$(plans_install v2.15.0)" == no ]] || fail "make golangci-lint rebuilds an up-to-date pin"
+pass "make golangci-lint leaves an up-to-date pin alone"
+[[ "$(plans_install v2.99.0)" == yes ]] || fail "make golangci-lint keeps the old binary after a version bump"
+pass "make golangci-lint rebuilds after a version bump"
+if [[ -f "${ROOT}/hack/tooling/.custom-gcl.yml" ]]; then
+  touch -t 200001010000 "${TMP}/bin/.golangci-lint-v2.15.0.stamp"
+  [[ "$(plans_install v2.15.0)" == yes ]] || fail "make golangci-lint ignores a newer .custom-gcl.yml"
+  pass "make golangci-lint rebuilds after a .custom-gcl.yml change"
+fi
 
 echo "All lint tool target tests passed."
