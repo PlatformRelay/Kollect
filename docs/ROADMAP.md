@@ -3,13 +3,13 @@
 Kollect is a Kubernetes inventory exporter: select resources by GVK, extract attributes with CEL
 or JSONPath, aggregate a canonical snapshot, and send it to one or more sinks.
 
-**Last verified:** 2026-10-04 against **v0.21.0**. For exact shipped changes, use the
+**Last verified:** 2026-10-25 against **v0.22.0**. For exact shipped changes, use the
 [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md). For proposals that
 have not entered a release, see [Planned features](roadmap/planned-features.md).
 
 --8<-- "pre-beta.md"
 
-## Shipped in v0.21.0
+## Shipped in v0.22.0
 
 The current release includes:
 
@@ -25,16 +25,32 @@ The current release includes:
 - Pipeline CLI for kubeconfig-based collection without installing the operator
   ([guide](guides/pipeline-cli.md), [ADR-0801](adr/0801-pipeline-cli-mode.md)), including streaming
   collected output to standard output for local inspection and debugging.
-- New in v0.21.0: opt-in snapshot retraction when an inventory is deleted
+- Opt-in snapshot retraction when an inventory is deleted
   (`KollectSnapshotSink.spec.deletionPolicy: Delete`); the default remains `Retain`
   ([ADR-0421](adr/0421-snapshot-sink-deletion-policy.md)).
+- New in v0.22.0: S3, GCS, Postgres and MongoDB sinks trust the `spec.tls` CA; a rotated sink
+  Secret is used from the next export without a restart; Git and GitLab exports record file
+  ownership by inventory identity ([ADR-0422](adr/0422-inventory-export-identity.md)); the Git
+  sink exports through one engine, go-git ([ADR-0803](adr/0803-git-engine-convergence.md)); and a
+  debounced sink reports `Synced=True`.
 
-Upgrading to v0.21.0 has two breaking changes. Sinks using `tls.insecureSkipVerify: true` stop
-exporting: supply the server CA (`spec.tls.caBundle` or `spec.tls.caSecretRef`) and remove the
-field, or, for development clusters only, start the manager with `--allow-insecure-sinks`; see the
-[upgrade guide](operator-manual/upgrading.md). NATS credentials embedded in `spec.nats.url` or
-`spec.endpoint` are rejected and must move into the Secret named by `spec.secretRef`; see the
-[KollectEventSink reference](crds/kollecteventsink.md).
+Upgrading to v0.22.0 has breaking changes; apply the new CRDs before the chart upgrade
+([CRD schema changes](operator-manual/upgrading.md#crd-schema-changes)):
+
+- `spec.git.engine: cli` is removed
+  ([Git engine convergence](operator-manual/upgrading.md#git-engine-convergence)).
+- A sink CA that cannot take effect is a terminal error
+  ([Sink CA trust](operator-manual/upgrading.md#sink-ca-trust)).
+- A deleted or emptied sink Secret fails the export
+  ([Sink Secret rotation](operator-manual/upgrading.md#sink-secret-rotation)).
+- Overlapping inventories on one Git sink are rejected, and files a v0.21.x export left behind
+  need one manual cleanup
+  ([Git export ownership](operator-manual/upgrading.md#git-export-ownership)).
+- `kollect-pipeline` exits `2` on a missing referenced Secret
+  ([Pipeline CLI](operator-manual/upgrading.md#pipeline-cli-changes)).
+- A debounced sink no longer sets `Synced=False` / `PartiallySynced`; condition messages and the
+  read API change, and the Helm value `mode` is removed
+  ([Smaller behaviour changes](operator-manual/upgrading.md#smaller-behaviour-changes)).
 
 The [CR reference](crds/index.md) describes the supported API. The
 [operator manual](operator-manual/index.md) covers installation, operation, and failure modes.
