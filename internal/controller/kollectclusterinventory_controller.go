@@ -705,6 +705,17 @@ func (r *KollectClusterInventoryReconciler) setDegraded(
 		ObservedGeneration: inv.Generation,
 		LastTransitionTime: metav1.Now(),
 	})
+	// ExportSucceeded is one pass, not a sticky last-success bit. A total
+	// failure never reaches updateStatus, which is the only other writer
+	// that sets this condition false.
+	apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+		Type:               kollectdevv1alpha1.ConditionExportSucceeded,
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: inv.Generation,
+		LastTransitionTime: metav1.Now(),
+	})
 
 	if err := r.Status().Update(ctx, inv); err != nil {
 		if apierrors.IsConflict(err) {
@@ -790,7 +801,7 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 		case failed > 0 && outcome.ExportedCount == 0:
 			message := "export failed"
 			if outcome.ExportErr != nil {
-				message = outcome.ExportErr.Error()
+				message = redact.Text(outcome.ExportErr.Error())
 			}
 			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 				Type:               conditionDegraded,
