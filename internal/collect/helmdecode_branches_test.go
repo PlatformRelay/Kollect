@@ -145,6 +145,7 @@ func TestDecodeHelmReleaseSecret_malformedPayloads(t *testing.T) {
 		{name: "truncated gzip stream", payload: truncated, wantMsg: "read gzip release"},
 		{name: "gzip of non-JSON", payload: gzipped([]byte("not json at all")), wantMsg: "json decode release"},
 		{name: "plain non-JSON non-gzip", payload: []byte("garbage"), wantMsg: "json decode release"},
+		{name: "gzip larger than the inflate cap", payload: gzipped(bytes.Repeat([]byte("a"), 32<<20+1)), wantMsg: "exceeds"},
 	}
 
 	for _, tt := range tests {
