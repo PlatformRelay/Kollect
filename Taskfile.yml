@@ -347,7 +347,9 @@ tasks:
     cmds:
       - test -z "$(gofmt -l . | grep -v '^$' || true)"
       - make golangci-lint
-      - test -z "$(bin/golangci-lint fmt --diff 2>/dev/null | grep -v '^$' || true)"
+      # A diff fails (golangci-lint exits 1 and the diff is printed) and so does a tool error
+      # (its own message on stderr); stderr is not discarded, or a broken linter reads as clean.
+      - out="$(bin/golangci-lint fmt --diff)" && test -z "$out" || { printf '%s\n' "$out"; exit 1; }
 
   docker:build:
     desc: Build the controller-manager container image
