@@ -822,9 +822,6 @@ func (e *Engine) processDispatch(
 	}
 
 	resourceNS := u.GetNamespace()
-	if resourceNS == "" {
-		resourceNS = corev1.NamespaceDefault
-	}
 
 	e.mu.RLock()
 	keys := e.targetsByGVR[gvr]
@@ -835,6 +832,13 @@ func (e *Engine) processDispatch(
 		}
 	}
 	e.mu.RUnlock()
+
+	// One cluster-scoped object is watched by every synthetic namespace target.
+	// Store it on one of them so the rollup does not repeat it per namespace.
+	ownerNS := ""
+	if resourceNS == "" {
+		ownerNS = clusterScopedOwnerNamespace(states)
+	}
 
 	// Namespace mismatches are tallied per dispatched object and reported once, so
 	// the label lookup stays off the per-target inner loop.
@@ -855,6 +859,13 @@ func (e *Engine) processDispatch(
 			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
 			metrics.CollectItemsTotal.Set(float64(e.store.Len()))
 			e.refreshTargetSnapshotMetrics(st, target)
+			e.clearExtractFailure(targetKeyStr, string(u.GetUID()))
+
+			continue
+		}
+
+		if resourceNS == "" && target.Namespace != ownerNS {
+			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
 			e.clearExtractFailure(targetKeyStr, string(u.GetUID()))
 
 			continue
@@ -1039,9 +1050,6 @@ func (e *Engine) matchesTarget(
 ) targetMatch {
 	target := st.target
 	resourceNS := u.GetNamespace()
-	if resourceNS == "" {
-		resourceNS = corev1.NamespaceDefault
-	}
 
 	if !e.namespaceMatches(&target, st.effectiveNamespaces, st.scopeEnforced, resourceNS) {
 		return targetMatchNamespaceMismatch
@@ -1082,6 +1090,12 @@ func (e *Engine) namespaceMatches(
 	scopeEnforced bool,
 	resourceNamespace string,
 ) bool {
+	// A cluster-scoped object is not in a workload namespace. A scope that
+	// omits "default" must not drop it.
+	if resourceNamespace == "" {
+		return true
+	}
+
 	if len(effective) > 0 {
 		_, ok := effective[resourceNamespace]
 		return ok
@@ -1114,6 +1128,39 @@ func (e *Engine) namespaceMatches(
 	}
 
 	return namespaceMatchesSelector(target.Spec.NamespaceSelector, meta.Labels)
+}
+
+// clusterScopedOwnerNamespace picks one target for a cluster-scoped object.
+// A cluster target registers the same name in every workload namespace, so
+// that name wins over a single namespaced target whose namespace sorts first.
+// Within the winning name, the smallest namespace stays put.
+func clusterScopedOwnerNamespace(states []targetState) string {
+	counts := make(map[string]int, len(states))
+	for i := range states {
+		counts[states[i].target.Name]++
+	}
+
+	bestName := ""
+	bestCount := 0
+	for name, n := range counts {
+		if n > bestCount || (n == bestCount && (bestName == "" || name < bestName)) {
+			bestName = name
+			bestCount = n
+		}
+	}
+
+	owner := ""
+	for i := range states {
+		if states[i].target.Name != bestName {
+			continue
+		}
+		ns := states[i].target.Namespace
+		if owner == "" || ns < owner {
+			owner = ns
+		}
+	}
+
+	return owner
 }
 
 func toUnstructured(obj interface{}) *unstructured.Unstructured {
