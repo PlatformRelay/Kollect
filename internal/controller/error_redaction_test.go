@@ -339,6 +339,47 @@ func TestClusterSetDegraded_redactsMessage(t *testing.T) {
 	}
 }
 
+// A total failure goes through setDegraded, which used to leave a previous
+// ExportSucceeded=True in place. The condition is per export pass.
+func TestClusterSetDegraded_clearsExportSucceeded(t *testing.T) {
+	t.Parallel()
+
+	scheme := controllerScheme(t)
+	inv := &kollectdevv1alpha1.KollectClusterInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "cinv", Generation: 4},
+	}
+	apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+		Type:               kollectdevv1alpha1.ConditionExportSucceeded,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Exported",
+		Message:            "exported 3 item(s); 1/1 sink(s) up to date",
+		ObservedGeneration: 3,
+	})
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(inv).
+		WithStatusSubresource(inv).
+		Build()
+
+	r := &KollectClusterInventoryReconciler{Client: cl, Scheme: scheme}
+	if _, err := r.setDegraded(context.Background(), inv, reasonExportFailed, "sink down"); err != nil {
+		t.Fatalf("setDegraded: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectClusterInventory
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cinv"}, &got); err != nil {
+		t.Fatalf("Get cluster inventory: %v", err)
+	}
+
+	exported := apimeta.FindStatusCondition(got.Status.Conditions, kollectdevv1alpha1.ConditionExportSucceeded)
+	if exported == nil || exported.Status != metav1.ConditionFalse || exported.Reason != reasonExportFailed {
+		t.Fatalf("ExportSucceeded = %+v, want False/%s", exported, reasonExportFailed)
+	}
+	if exported.ObservedGeneration != 4 {
+		t.Fatalf("ExportSucceeded observedGeneration = %d, want 4", exported.ObservedGeneration)
+	}
+}
+
 // updateStatus's all-sinks-failed branch writes Degraded and Ready directly from
 // outcome.ExportErr instead of going through setSyncedCondition, so it needs its
 // own redaction lock.
@@ -378,6 +419,51 @@ func TestUpdateStatus_failedWithNoExport_redactsMessage(t *testing.T) {
 			t.Fatalf("%s condition missing", condType)
 		}
 
+		if cond.Reason != reasonExportFailed {
+			t.Fatalf("%s reason = %q, want %q", condType, cond.Reason, reasonExportFailed)
+		}
+
+		assertNoSecret(t, condType+" condition", cond.Message)
+	}
+}
+
+// The cluster mixed-failure branch writes Degraded, Ready, and ExportSucceeded
+// from the aggregate error. One debounced sink keeps this off the setDegraded path.
+func TestClusterUpdateStatus_mixedFailure_redactsMessage(t *testing.T) {
+	t.Parallel()
+
+	scheme := controllerScheme(t)
+	inv := &kollectdevv1alpha1.KollectClusterInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "cinv", Generation: 2},
+		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("db-a", "db-b"),
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(inv).
+		WithStatusSubresource(inv).
+		Build()
+
+	r := &KollectClusterInventoryReconciler{Client: cl, Scheme: scheme}
+	if _, err := r.updateStatus(context.Background(), inv, 1, 0, perSinkExportOutcome{
+		FailedCount:    1,
+		DebouncedCount: 1,
+		ExportErr:      leakErr(),
+	}, nil); err != nil {
+		t.Fatalf("updateStatus: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectClusterInventory
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cinv"}, &got); err != nil {
+		t.Fatalf("Get cluster inventory: %v", err)
+	}
+
+	for _, condType := range []string{conditionDegraded, conditionReady, kollectdevv1alpha1.ConditionExportSucceeded} {
+		cond := apimeta.FindStatusCondition(got.Status.Conditions, condType)
+		if cond == nil {
+			t.Fatalf("%s condition missing", condType)
+		}
 		if cond.Reason != reasonExportFailed {
 			t.Fatalf("%s reason = %q, want %q", condType, cond.Reason, reasonExportFailed)
 		}
